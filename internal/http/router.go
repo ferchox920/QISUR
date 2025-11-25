@@ -12,6 +12,7 @@ type RouterFactory struct {
 	IdentityHandler *IdentityHandler
 	WSServer        *socketio.Server
 	TokenValidator  TokenValidator
+	CatalogHandler  *CatalogHandler
 }
 
 // Build wires all HTTP routes for REST and WebSocket.
@@ -27,6 +28,19 @@ func (f *RouterFactory) Build() *gin.Engine {
 	}
 
 	api := router.Group("/api/v1")
+	if f.CatalogHandler != nil {
+		cat := api.Group("/categories")
+		{
+			cat.GET("", f.CatalogHandler.ListCategories)
+			adminCats := cat.Group("")
+			if f.TokenValidator != nil {
+				adminCats.Use(AuthMiddleware(f.TokenValidator), RoleMiddleware("admin"))
+			}
+			adminCats.POST("", f.CatalogHandler.CreateCategory)
+			adminCats.PUT("/:id", f.CatalogHandler.UpdateCategory)
+			adminCats.DELETE("/:id", f.CatalogHandler.DeleteCategory)
+		}
+	}
 	if f.IdentityHandler != nil {
 		identityGroup := api.Group("/identity")
 		identityGroup.POST("/users/client", f.IdentityHandler.RegisterClient)

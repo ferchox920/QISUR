@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	"catalog-api/internal/catalog"
 	httpapi "catalog-api/internal/http"
 	"catalog-api/internal/identity"
 	"catalog-api/internal/storage/postgres"
@@ -55,9 +56,15 @@ func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *h
 		logr.Printf("admin seed skipped: %v", err)
 	}
 
+	catService := catalog.NewService(catalog.ServiceDeps{
+		CategoryRepo: nil, // TODO: wire Postgres repository when implemented.
+	})
+	catalogHandler := httpapi.NewCatalogHandler(catService)
+
 	identityHandler := httpapi.NewIdentityHandler(idService)
 
 	routerFactory := &httpapi.RouterFactory{
+		CatalogHandler:  catalogHandler,
 		IdentityHandler: identityHandler,
 		WSServer:        wsServer,
 		TokenValidator:  jwtValidatorAdapter{provider: jwtProvider},

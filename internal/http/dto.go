@@ -48,3 +48,21 @@ type IdentityResponse struct {
 	Status     string `json:"status"`
 	IsVerified bool   `json:"is_verified"`
 }
+
+// Catalog DTOs
+
+type CategoryResponse struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type CreateCategoryRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description" binding:"omitempty"`
+}
+
+type UpdateCategoryRequest struct {
+	Name        string `json:"name" binding:"omitempty"`
+	Description string `json:"description" binding:"omitempty"`
+}
