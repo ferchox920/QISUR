@@ -12,3 +12,12 @@ type Product struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
+
+// ProductHistory captures historical price/stock snapshots.
+type ProductHistory struct {
+	ID        string
+	ProductID string
+	Price     int64
+	Stock     int64
+	ChangedAt time.Time
+}

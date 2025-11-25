@@ -90,3 +90,11 @@ type UpdateProductRequest struct {
 	Price       int64  `json:"price" binding:"omitempty,min=0"`
 	Stock       int64  `json:"stock" binding:"omitempty,min=0"`
 }
+
+type ProductHistoryResponse struct {
+	ID        string `json:"id"`
+	ProductID string `json:"product_id"`
+	Price     int64  `json:"price"`
+	Stock     int64  `json:"stock"`
+	ChangedAt string `json:"changed_at"`
+}

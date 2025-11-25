@@ -1,3 +1,11 @@
+// @title QISUR Catalog API
+// @version 0.1.0
+// @description Catalog and identity API with WebSocket notifications.
+// @BasePath /api/v1
+// @schemes http
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 package main
 
 import (
@@ -6,6 +14,7 @@ import (
 	"net/http"
 	"os"
 
+	docs "catalog-api/docs/swagger"
 	"catalog-api/internal/catalog"
 	httpapi "catalog-api/internal/http"
 	"catalog-api/internal/identity"
@@ -22,6 +31,8 @@ import (
 func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *httpapi.RouterFactory, *socketio.Server, error) {
 	cfg := config.Load()
 	logr := logger.New()
+	docs.SwaggerInfo.BasePath = "/api/v1"
+	docs.SwaggerInfo.Schemes = []string{"http"}
 
 	dbPool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {

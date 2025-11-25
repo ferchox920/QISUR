@@ -5,6 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	socketio "github.com/googollee/go-socket.io"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // RouterFactory bundles handlers required to build the HTTP router.
@@ -45,6 +47,7 @@ func (f *RouterFactory) Build() *gin.Engine {
 		{
 			prod.GET("", f.CatalogHandler.ListProducts)
 			prod.GET("/:id", f.CatalogHandler.GetProduct)
+			prod.GET("/:id/history", f.CatalogHandler.GetProductHistory)
 
 			adminProd := prod.Group("")
 			if f.TokenValidator != nil {
@@ -79,8 +82,8 @@ func (f *RouterFactory) Build() *gin.Engine {
 		adminProtected.PUT("/users/:id/role", f.IdentityHandler.UpdateUserRole)
 	}
 
-	// Swagger docs placeholder.
-	router.GET("/docs/swagger/openapi.yaml", ServeSwaggerSpec)
+	swaggerURL := ginSwagger.URL("/docs/doc.json")
+	router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, swaggerURL, ginSwagger.InstanceName("swagger")))
 
 	return router
 }
