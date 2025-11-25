@@ -10,6 +10,7 @@ type UserRepository interface {
 	SetVerification(ctx context.Context, userID UserID, verified bool) error
 	UpdateStatus(ctx context.Context, userID UserID, status UserStatus) error
 	UpdateUserProfile(ctx context.Context, user User) (User, error)
+	DeleteUser(ctx context.Context, userID UserID) error
 }
 
 // RoleRepository holds contracts for role management.

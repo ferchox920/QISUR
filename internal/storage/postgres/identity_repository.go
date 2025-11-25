@@ -136,6 +136,14 @@ func (r *IdentityRepository) UpdateUserProfile(ctx context.Context, user identit
 	return scanUser(row)
 }
 
+func (r *IdentityRepository) DeleteUser(ctx context.Context, userID identity.UserID) error {
+	if r.pool == nil {
+		return identity.ErrRepositoryNotConfigured
+	}
+	_, err := r.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, userID)
+	return err
+}
+
 func scanUser(row pgx.Row) (identity.User, error) {
 	var u identity.User
 	if err := row.Scan(

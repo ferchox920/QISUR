@@ -117,8 +117,13 @@ func (s *service) register(ctx context.Context, input RegisterUserInput, role Ro
 	}
 	if s.deps.VerificationCodeProvider != nil && s.deps.VerificationSender != nil {
 		code, err := s.deps.VerificationCodeProvider.Generate(ctx, created.ID)
-		if err == nil {
-			_ = s.deps.VerificationSender.SendVerification(ctx, created.Email, code)
+		if err != nil {
+			_ = s.deps.UserRepo.DeleteUser(ctx, created.ID)
+			return User{}, err
+		}
+		if err := s.deps.VerificationSender.SendVerification(ctx, created.Email, code); err != nil {
+			_ = s.deps.UserRepo.DeleteUser(ctx, created.ID)
+			return User{}, err
 		}
 	}
 	return created, nil

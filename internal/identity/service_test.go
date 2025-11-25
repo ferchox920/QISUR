@@ -2,6 +2,7 @@ package identity
 
 import (
 	"context"
+	"errors"
 	"testing"
 )
 
@@ -23,6 +24,7 @@ func (stubUserRepo) UpdateUserProfile(ctx context.Context, user User) (User, err
 }
 func (stubUserRepo) EnsureRole(ctx context.Context, role RoleName) error                { return nil }
 func (stubUserRepo) AssignRole(ctx context.Context, userID UserID, role RoleName) error { return nil }
+func (stubUserRepo) DeleteUser(ctx context.Context, userID UserID) error                { return nil }
 
 type stubVerifier struct {
 	valid bool
@@ -81,6 +83,48 @@ func TestVerifyUser_InvalidCode(t *testing.T) {
 	})
 	if err := svc.VerifyUser(context.Background(), VerifyUserInput{UserID: "id", Code: "bad"}); err != ErrInvalidVerificationCode {
 		t.Fatalf("expected ErrInvalidVerificationCode, got %v", err)
+	}
+}
+
+type failingSender struct{}
+
+func (failingSender) SendVerification(ctx context.Context, email, code string) error {
+	return errors.New("send failed")
+}
+
+type trackingRepo struct {
+	stubUserRepo
+	deleted bool
+}
+
+func (t *trackingRepo) DeleteUser(ctx context.Context, userID UserID) error {
+	t.deleted = true
+	return nil
+}
+
+type fixedCodeProvider struct {
+	code string
+	err  error
+}
+
+func (p fixedCodeProvider) Generate(ctx context.Context, userID string) (string, error) {
+	return p.code, p.err
+}
+
+func TestRegister_RollsBackOnSendFailure(t *testing.T) {
+	repo := &trackingRepo{}
+	svc := NewService(ServiceDeps{
+		UserRepo:                 repo,
+		RoleRepo:                 repo,
+		PasswordHasher:           stubHasher{},
+		VerificationCodeProvider: fixedCodeProvider{code: "123456"},
+		VerificationSender:       failingSender{},
+	})
+	if _, err := svc.RegisterClient(context.Background(), RegisterUserInput{Email: "a@b.c", Password: "secret123", FullName: "Test"}); err == nil {
+		t.Fatalf("expected error due to send failure")
+	}
+	if !repo.deleted {
+		t.Fatalf("expected DeleteUser to be called on rollback")
 	}
 }
 
