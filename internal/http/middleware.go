@@ -22,11 +22,19 @@ type AuthContext struct {
 func AuthMiddleware(validator TokenValidator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authz := c.GetHeader("Authorization")
-		if authz == "" || !strings.HasPrefix(strings.ToLower(authz), "bearer ") {
+		if authz == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing bearer token"})
 			return
 		}
-		raw := strings.TrimSpace(authz[7:])
+		lower := strings.ToLower(authz)
+		raw := strings.TrimSpace(authz)
+		if strings.HasPrefix(lower, "bearer ") {
+			raw = strings.TrimSpace(authz[7:])
+		}
+		if raw == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing bearer token"})
+			return
+		}
 		ctx, err := validator.Validate(raw)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})

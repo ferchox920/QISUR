@@ -72,7 +72,7 @@ func (f *RouterFactory) Build() *gin.Engine {
 			protected.Use(AuthMiddleware(f.TokenValidator))
 		}
 
-		protected.PUT("/users/:id", f.IdentityHandler.UpdateUser)
+		protected.PUT("/users/me", f.IdentityHandler.UpdateUser)
 
 		adminProtected := protected.Group("")
 		if f.TokenValidator != nil {

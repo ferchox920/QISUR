@@ -1,6 +1,9 @@
 package identity
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // UserRepository holds persistence contracts for users.
 type UserRepository interface {
@@ -11,6 +14,9 @@ type UserRepository interface {
 	UpdateStatus(ctx context.Context, userID UserID, status UserStatus) error
 	UpdateUserProfile(ctx context.Context, user User) (User, error)
 	DeleteUser(ctx context.Context, userID UserID) error
+	SaveVerificationCode(ctx context.Context, userID UserID, code string, expiresAt time.Time) error
+	GetVerificationCode(ctx context.Context, userID UserID) (code string, expiresAt time.Time, err error)
+	DeleteVerificationCode(ctx context.Context, userID UserID) error
 }
 
 // RoleRepository holds contracts for role management.

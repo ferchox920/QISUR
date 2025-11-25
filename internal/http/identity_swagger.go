@@ -45,11 +45,10 @@ func LoginDoc() {}
 // @Tags Identity
 // @Accept json
 // @Produce json
-// @Param id path string true "User ID"
 // @Param body body UpdateUserRequest true "User update payload"
 // @Success 200 {object} IdentityResponse
 // @Security BearerAuth
-// @Router /identity/users/{id} [put]
+// @Router /identity/users/me [put]
 func UpdateUserDoc() {}
 
 // UpdateUserRoleDoc godoc

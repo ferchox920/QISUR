@@ -242,7 +242,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/identity/users/{id}": {
+        "/identity/users/me": {
             "put": {
                 "security": [
                     {
@@ -260,13 +260,6 @@ const docTemplate = `{
                 ],
                 "summary": "Update user profile (no role change)",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "User ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
                     {
                         "description": "User update payload",
                         "name": "body",

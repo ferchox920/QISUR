@@ -2,6 +2,7 @@ package mailer
 
 import (
 	"bufio"
+	"context"
 	"net"
 	"strconv"
 	"strings"
@@ -85,7 +86,7 @@ func TestGomailVerificationSender_SendsMail(t *testing.T) {
 	}
 
 	code := "999888"
-	if err := sender.SendVerification(nil, "to@example.com", code); err != nil {
+	if err := sender.SendVerification(context.Background(), "to@example.com", code); err != nil {
 		t.Fatalf("unexpected send error: %v", err)
 	}
 

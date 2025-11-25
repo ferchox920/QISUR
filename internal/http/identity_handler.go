@@ -104,12 +104,15 @@ func (h *IdentityHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	userID := c.Param("id")
-	updaterID := c.GetString("user_id")
+	userID := c.GetString("user_id")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing user identity"})
+		return
+	}
 
 	updated, err := h.svc.UpdateUser(c.Request.Context(), identity.UpdateUserInput{
 		UserID:    identity.UserID(userID),
-		UpdaterID: updaterID,
+		UpdaterID: userID,
 		FullName:  req.FullName,
 	})
 	if err != nil {

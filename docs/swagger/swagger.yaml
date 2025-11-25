@@ -459,16 +459,11 @@ paths:
       summary: Register standard user
       tags:
       - Identity
-  /identity/users/{id}:
+  /identity/users/me:
     put:
       consumes:
       - application/json
       parameters:
-      - description: User ID
-        in: path
-        name: id
-        required: true
-        type: string
       - description: User update payload
         in: body
         name: body

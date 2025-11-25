@@ -10,10 +10,8 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log"
 	"net/http"
-	"os"
 
 	docs "catalog-api/docs/swagger"
 	"catalog-api/internal/catalog"
@@ -61,13 +59,14 @@ func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *h
 		verificationSender = &noopVerificationSender{logr: logr}
 	}
 
+	codeGenerator := crypto.RandomDigitsGenerator{Length: 6}
+
 	idService := identity.NewService(identity.ServiceDeps{
 		UserRepo:                 identityRepo,
 		RoleRepo:                 identityRepo,
 		PasswordHasher:           crypto.BcryptHasher{},
 		VerificationSender:       verificationSender,
-		VerificationCodeProvider: noopVerificationCodeGenerator{},
-		VerificationCodeVerifier: noopVerificationCodeGenerator{},
+		VerificationCodeProvider: codeGenerator,
 		TokenProvider:            jwtProvider,
 	})
 
@@ -128,21 +127,6 @@ func (s *noopVerificationSender) SendVerification(ctx context.Context, email, co
 		s.logr.Printf("verification email to %s with code %s (noop)", email, code)
 	}
 	return nil
-}
-
-// noopVerificationCodeGenerator issues static codes as a placeholder.
-type noopVerificationCodeGenerator struct{}
-
-func (noopVerificationCodeGenerator) Generate(ctx context.Context, userID string) (string, error) {
-	return os.Getenv("DEFAULT_VERIFICATION_CODE"), nil
-}
-
-func (noopVerificationCodeGenerator) Verify(ctx context.Context, userID string, code string) (bool, error) {
-	expected := os.Getenv("DEFAULT_VERIFICATION_CODE")
-	if expected == "" {
-		return false, errors.New("verification code not configured")
-	}
-	return code == expected, nil
 }
 
 // jwtValidatorAdapter bridges JWTProvider to HTTP middleware TokenValidator.

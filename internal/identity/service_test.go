@@ -4,15 +4,18 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
 
 type stubUserRepo struct{}
 
-func (stubUserRepo) CreateUser(ctx context.Context, user User) (User, error) { return User{}, nil }
+func (stubUserRepo) CreateUser(ctx context.Context, user User) (User, error) { return user, nil }
 func (stubUserRepo) GetByEmail(ctx context.Context, email string) (User, error) {
-	return User{}, nil
+	return User{}, ErrUserNotFound
 }
-func (stubUserRepo) GetByID(ctx context.Context, id UserID) (User, error) { return User{}, nil }
+func (stubUserRepo) GetByID(ctx context.Context, id UserID) (User, error) {
+	return User{ID: id, Email: string(id)}, nil
+}
 func (stubUserRepo) SetVerification(ctx context.Context, userID UserID, verified bool) error {
 	return nil
 }
@@ -25,18 +28,13 @@ func (stubUserRepo) UpdateUserProfile(ctx context.Context, user User) (User, err
 func (stubUserRepo) EnsureRole(ctx context.Context, role RoleName) error                { return nil }
 func (stubUserRepo) AssignRole(ctx context.Context, userID UserID, role RoleName) error { return nil }
 func (stubUserRepo) DeleteUser(ctx context.Context, userID UserID) error                { return nil }
-
-type stubVerifier struct {
-	valid bool
-	err   error
+func (stubUserRepo) SaveVerificationCode(ctx context.Context, userID UserID, code string, expiresAt time.Time) error {
+	return nil
 }
-
-func (s stubVerifier) Verify(ctx context.Context, userID string, code string) (bool, error) {
-	if s.err != nil {
-		return false, s.err
-	}
-	return s.valid, nil
+func (stubUserRepo) GetVerificationCode(ctx context.Context, userID UserID) (string, time.Time, error) {
+	return "123456", time.Now().Add(time.Hour), nil
 }
+func (stubUserRepo) DeleteVerificationCode(ctx context.Context, userID UserID) error { return nil }
 
 func TestRegisterClient_RepoRequired(t *testing.T) {
 	svc := NewService(ServiceDeps{})
@@ -69,20 +67,65 @@ func TestVerifyUser_RepoRequired(t *testing.T) {
 	}
 }
 
-func TestVerifyUser_VerifierRequired(t *testing.T) {
-	svc := NewService(ServiceDeps{UserRepo: stubUserRepo{}})
-	if err := svc.VerifyUser(context.Background(), VerifyUserInput{UserID: "id", Code: "code"}); err != ErrNotImplemented {
-		t.Fatalf("expected ErrNotImplemented, got %v", err)
-	}
+type codeRepo struct {
+	stubUserRepo
+	code      string
+	expires   time.Time
+	deleted   bool
+	email     string
+	saved     bool
+	savedCode string
+}
+
+func (c *codeRepo) GetVerificationCode(ctx context.Context, userID UserID) (string, time.Time, error) {
+	return c.code, c.expires, nil
+}
+
+func (c *codeRepo) DeleteVerificationCode(ctx context.Context, userID UserID) error {
+	c.deleted = true
+	return nil
+}
+
+func (c *codeRepo) GetByID(ctx context.Context, id UserID) (User, error) {
+	return User{ID: id, Email: c.email}, nil
+}
+
+func (c *codeRepo) SaveVerificationCode(ctx context.Context, userID UserID, code string, expiresAt time.Time) error {
+	c.saved = true
+	c.savedCode = code
+	return nil
 }
 
 func TestVerifyUser_InvalidCode(t *testing.T) {
+	repo := &codeRepo{code: "123456", expires: time.Now().Add(time.Hour)}
 	svc := NewService(ServiceDeps{
-		UserRepo:                 stubUserRepo{},
-		VerificationCodeVerifier: stubVerifier{valid: false},
+		UserRepo: repo,
 	})
-	if err := svc.VerifyUser(context.Background(), VerifyUserInput{UserID: "id", Code: "bad"}); err != ErrInvalidVerificationCode {
+	if err := svc.VerifyUser(context.Background(), VerifyUserInput{UserID: "id", Code: "000000"}); err != ErrInvalidVerificationCode {
 		t.Fatalf("expected ErrInvalidVerificationCode, got %v", err)
+	}
+}
+
+func TestVerifyUser_ExpiredCode(t *testing.T) {
+	repo := &codeRepo{code: "123456", expires: time.Now().Add(-time.Minute), email: "a@b.c"}
+	sender := &trackingSender{}
+	newCode := "999888"
+	svc := NewService(ServiceDeps{
+		UserRepo:                 repo,
+		VerificationCodeProvider: fixedCodeProvider{code: newCode},
+		VerificationSender:       sender,
+	})
+	if err := svc.VerifyUser(context.Background(), VerifyUserInput{UserID: "id", Code: "123456"}); err != ErrInvalidVerificationCode {
+		t.Fatalf("expected ErrInvalidVerificationCode for expired code, got %v", err)
+	}
+	if !repo.deleted {
+		t.Fatalf("expected DeleteVerificationCode to be called on expiration")
+	}
+	if !repo.saved || repo.savedCode != newCode {
+		t.Fatalf("expected new code to be saved on expiration, saved=%v code=%s", repo.saved, repo.savedCode)
+	}
+	if sender.sentCode != newCode || sender.sentTo != "a@b.c" {
+		t.Fatalf("expected resend of new code, got to=%s code=%s", sender.sentTo, sender.sentCode)
 	}
 }
 
@@ -106,10 +149,18 @@ func (t *trackingSender) SendVerification(ctx context.Context, email, code strin
 type trackingRepo struct {
 	stubUserRepo
 	deleted bool
+	saved   bool
+	code    string
 }
 
 func (t *trackingRepo) DeleteUser(ctx context.Context, userID UserID) error {
 	t.deleted = true
+	return nil
+}
+
+func (t *trackingRepo) SaveVerificationCode(ctx context.Context, userID UserID, code string, expiresAt time.Time) error {
+	t.saved = true
+	t.code = code
 	return nil
 }
 
@@ -155,6 +206,9 @@ func TestRegister_UsesVerificationSenderWhenConfigured(t *testing.T) {
 	}
 	if sender.sentTo != "a@b.c" || sender.sentCode != code {
 		t.Fatalf("sender not invoked as expected: %+v", sender)
+	}
+	if !repo.saved || repo.code != code {
+		t.Fatalf("expected verification code to be saved, got saved=%v code=%s", repo.saved, repo.code)
 	}
 }
 

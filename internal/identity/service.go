@@ -1,6 +1,9 @@
 package identity
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // Service exposes identity use cases.
 type Service interface {
@@ -73,7 +76,6 @@ type ServiceDeps struct {
 	PasswordHasher           PasswordHasher
 	VerificationSender       VerificationSender
 	VerificationCodeProvider VerificationCodeGenerator
-	VerificationCodeVerifier VerificationCodeVerifier
 	TokenProvider            TokenProvider
 }
 
@@ -118,6 +120,11 @@ func (s *service) register(ctx context.Context, input RegisterUserInput, role Ro
 	if s.deps.VerificationCodeProvider != nil && s.deps.VerificationSender != nil {
 		code, err := s.deps.VerificationCodeProvider.Generate(ctx, created.ID)
 		if err != nil {
+			_ = s.deps.UserRepo.DeleteUser(ctx, created.ID)
+			return User{}, err
+		}
+		exp := time.Now().Add(15 * time.Minute)
+		if err := s.deps.UserRepo.SaveVerificationCode(ctx, created.ID, code, exp); err != nil {
 			_ = s.deps.UserRepo.DeleteUser(ctx, created.ID)
 			return User{}, err
 		}
@@ -176,20 +183,36 @@ func (s *service) VerifyUser(ctx context.Context, input VerifyUserInput) error {
 	if s.deps.UserRepo == nil {
 		return ErrRepositoryNotConfigured
 	}
-	if s.deps.VerificationCodeVerifier == nil {
-		return ErrNotImplemented
-	}
 	if input.Code == "" {
 		return ErrInvalidVerificationCode
 	}
-	valid, err := s.deps.VerificationCodeVerifier.Verify(ctx, string(input.UserID), input.Code)
+	code, expiresAt, err := s.deps.UserRepo.GetVerificationCode(ctx, input.UserID)
 	if err != nil {
 		return err
 	}
-	if !valid {
+	if time.Now().After(expiresAt) {
+		_ = s.deps.UserRepo.DeleteVerificationCode(ctx, input.UserID)
+		// resend a fresh code
+		if s.deps.VerificationCodeProvider != nil && s.deps.VerificationSender != nil {
+			newCode, genErr := s.deps.VerificationCodeProvider.Generate(ctx, string(input.UserID))
+			if genErr == nil {
+				exp := time.Now().Add(15 * time.Minute)
+				if saveErr := s.deps.UserRepo.SaveVerificationCode(ctx, input.UserID, newCode, exp); saveErr == nil {
+					if user, userErr := s.deps.UserRepo.GetByID(ctx, input.UserID); userErr == nil {
+						_ = s.deps.VerificationSender.SendVerification(ctx, user.Email, newCode)
+					}
+				}
+			}
+		}
 		return ErrInvalidVerificationCode
 	}
-	return s.deps.UserRepo.SetVerification(ctx, input.UserID, true)
+	if code != input.Code {
+		return ErrInvalidVerificationCode
+	}
+	if err := s.deps.UserRepo.SetVerification(ctx, input.UserID, true); err != nil {
+		return err
+	}
+	return s.deps.UserRepo.DeleteVerificationCode(ctx, input.UserID)
 }
 
 func (s *service) BlockUser(ctx context.Context, input BlockUserInput) error {

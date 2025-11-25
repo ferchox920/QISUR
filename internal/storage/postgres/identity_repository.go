@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"catalog-api/internal/identity"
 
@@ -141,6 +142,41 @@ func (r *IdentityRepository) DeleteUser(ctx context.Context, userID identity.Use
 		return identity.ErrRepositoryNotConfigured
 	}
 	_, err := r.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, userID)
+	return err
+}
+
+func (r *IdentityRepository) SaveVerificationCode(ctx context.Context, userID identity.UserID, code string, expiresAt time.Time) error {
+	if r.pool == nil {
+		return identity.ErrRepositoryNotConfigured
+	}
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO verification_codes (user_id, code, expires_at)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (user_id) DO UPDATE SET code = EXCLUDED.code, expires_at = EXCLUDED.expires_at, updated_at = NOW()
+	`, userID, code, expiresAt)
+	return err
+}
+
+func (r *IdentityRepository) GetVerificationCode(ctx context.Context, userID identity.UserID) (string, time.Time, error) {
+	if r.pool == nil {
+		return "", time.Time{}, identity.ErrRepositoryNotConfigured
+	}
+	var code string
+	var expires time.Time
+	err := r.pool.QueryRow(ctx, `
+		SELECT code, expires_at FROM verification_codes WHERE user_id = $1
+	`, userID).Scan(&code, &expires)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	return code, expires, nil
+}
+
+func (r *IdentityRepository) DeleteVerificationCode(ctx context.Context, userID identity.UserID) error {
+	if r.pool == nil {
+		return identity.ErrRepositoryNotConfigured
+	}
+	_, err := r.pool.Exec(ctx, `DELETE FROM verification_codes WHERE user_id = $1`, userID)
 	return err
 }
 
