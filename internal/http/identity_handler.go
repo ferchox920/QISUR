@@ -17,7 +17,6 @@ func NewIdentityHandler(svc identity.Service) *IdentityHandler {
 	return &IdentityHandler{svc: svc}
 }
 
-
 func (h *IdentityHandler) RegisterClient(c *gin.Context) {
 	var req RegisterClientRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -37,7 +36,6 @@ func (h *IdentityHandler) RegisterClient(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, toIdentityResponse(user))
 }
-
 
 func (h *IdentityHandler) RegisterUser(c *gin.Context) {
 	var req RegisterUserRequest
@@ -59,7 +57,6 @@ func (h *IdentityHandler) RegisterUser(c *gin.Context) {
 	c.JSON(http.StatusCreated, toIdentityResponse(user))
 }
 
-
 func (h *IdentityHandler) VerifyUser(c *gin.Context) {
 	var req VerifyUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -77,7 +74,6 @@ func (h *IdentityHandler) VerifyUser(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
-
 
 func (h *IdentityHandler) BlockUser(c *gin.Context) {
 	var req BlockUserRequest
@@ -124,7 +120,6 @@ func (h *IdentityHandler) UpdateUser(c *gin.Context) {
 	c.JSON(http.StatusOK, toIdentityResponse(updated))
 }
 
-
 func (h *IdentityHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -143,7 +138,6 @@ func (h *IdentityHandler) Login(c *gin.Context) {
 
 	c.JSON(http.StatusOK, LoginResponse{Token: token.Token})
 }
-
 
 func (h *IdentityHandler) UpdateUserRole(c *gin.Context) {
 	var req UpdateUserRoleRequest

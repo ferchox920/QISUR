@@ -2,11 +2,13 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"catalog-api/internal/identity"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -24,12 +26,11 @@ func (r *IdentityRepository) CreateUser(ctx context.Context, user identity.User)
 		return identity.User{}, identity.ErrRepositoryNotConfigured
 	}
 	query := `
-		INSERT INTO users (id, email, full_name, password_hash, role, status, is_verified)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO users (email, full_name, password_hash, role, status, is_verified)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, email, full_name, password_hash, role, status, is_verified, created_at, updated_at
 	`
 	row := r.pool.QueryRow(ctx, query,
-		user.ID,
 		user.Email,
 		user.FullName,
 		user.PasswordHash,
@@ -37,7 +38,15 @@ func (r *IdentityRepository) CreateUser(ctx context.Context, user identity.User)
 		user.Status,
 		user.IsVerified,
 	)
-	return scanUser(row)
+	created, err := scanUser(row)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return identity.User{}, identity.ErrEmailAlreadyRegistered
+		}
+		return identity.User{}, err
+	}
+	return created, nil
 }
 
 func (r *IdentityRepository) GetByEmail(ctx context.Context, email string) (identity.User, error) {
@@ -116,6 +125,15 @@ func (r *IdentityRepository) AssignRole(ctx context.Context, userID identity.Use
 		return fmt.Errorf("no rows updated when assigning role user_id=%s", userID)
 	}
 	return nil
+}
+
+func (r *IdentityRepository) UpdateUserProfile(ctx context.Context, user identity.User) (identity.User, error) {
+	if r.pool == nil {
+		return identity.User{}, identity.ErrRepositoryNotConfigured
+	}
+	query := `UPDATE users SET full_name = $1, updated_at = NOW() WHERE id = $2 RETURNING id, email, full_name, password_hash, role, status, is_verified, created_at, updated_at`
+	row := r.pool.QueryRow(ctx, query, user.FullName, user.ID)
+	return scanUser(row)
 }
 
 func scanUser(row pgx.Row) (identity.User, error) {

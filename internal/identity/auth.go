@@ -18,6 +18,11 @@ type VerificationCodeGenerator interface {
 	Generate(ctx context.Context, userID string) (string, error)
 }
 
+// VerificationCodeVerifier validates verification challenges.
+type VerificationCodeVerifier interface {
+	Verify(ctx context.Context, userID string, code string) (bool, error)
+}
+
 // VerificationSender sends verification challenges (email, SMS, etc.).
 type VerificationSender interface {
 	SendVerification(ctx context.Context, email, code string) error

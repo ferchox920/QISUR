@@ -7,6 +7,7 @@ var (
 	ErrUserNotFound             = errors.New("user not found")
 	ErrUserBlocked              = errors.New("user is blocked")
 	ErrUserNotVerified          = errors.New("user not verified")
+	ErrInvalidCredentials       = errors.New("invalid credentials")
 	ErrInvalidVerificationCode  = errors.New("invalid verification code")
 	ErrRepositoryNotConfigured  = errors.New("repository not configured")
 	ErrPasswordHasherNotSet     = errors.New("password hasher not configured")

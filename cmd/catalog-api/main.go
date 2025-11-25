@@ -10,6 +10,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -56,6 +57,7 @@ func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *h
 		PasswordHasher:           crypto.BcryptHasher{},
 		VerificationSender:       &noopVerificationSender{logr: logr},
 		VerificationCodeProvider: noopVerificationCodeGenerator{},
+		VerificationCodeVerifier: noopVerificationCodeGenerator{},
 		TokenProvider:            jwtProvider,
 	})
 
@@ -121,6 +123,14 @@ type noopVerificationCodeGenerator struct{}
 
 func (noopVerificationCodeGenerator) Generate(ctx context.Context, userID string) (string, error) {
 	return os.Getenv("DEFAULT_VERIFICATION_CODE"), nil
+}
+
+func (noopVerificationCodeGenerator) Verify(ctx context.Context, userID string, code string) (bool, error) {
+	expected := os.Getenv("DEFAULT_VERIFICATION_CODE")
+	if expected == "" {
+		return false, errors.New("verification code not configured")
+	}
+	return code == expected, nil
 }
 
 // jwtValidatorAdapter bridges JWTProvider to HTTP middleware TokenValidator.

@@ -18,8 +18,23 @@ func (stubUserRepo) SetVerification(ctx context.Context, userID UserID, verified
 func (stubUserRepo) UpdateStatus(ctx context.Context, userID UserID, status UserStatus) error {
 	return nil
 }
+func (stubUserRepo) UpdateUserProfile(ctx context.Context, user User) (User, error) {
+	return user, nil
+}
 func (stubUserRepo) EnsureRole(ctx context.Context, role RoleName) error                { return nil }
 func (stubUserRepo) AssignRole(ctx context.Context, userID UserID, role RoleName) error { return nil }
+
+type stubVerifier struct {
+	valid bool
+	err   error
+}
+
+func (s stubVerifier) Verify(ctx context.Context, userID string, code string) (bool, error) {
+	if s.err != nil {
+		return false, s.err
+	}
+	return s.valid, nil
+}
 
 func TestRegisterClient_RepoRequired(t *testing.T) {
 	svc := NewService(ServiceDeps{})
@@ -49,6 +64,23 @@ func TestVerifyUser_RepoRequired(t *testing.T) {
 	svc := NewService(ServiceDeps{})
 	if err := svc.VerifyUser(context.Background(), VerifyUserInput{UserID: "id"}); err != ErrRepositoryNotConfigured {
 		t.Fatalf("expected ErrRepositoryNotConfigured, got %v", err)
+	}
+}
+
+func TestVerifyUser_VerifierRequired(t *testing.T) {
+	svc := NewService(ServiceDeps{UserRepo: stubUserRepo{}})
+	if err := svc.VerifyUser(context.Background(), VerifyUserInput{UserID: "id", Code: "code"}); err != ErrNotImplemented {
+		t.Fatalf("expected ErrNotImplemented, got %v", err)
+	}
+}
+
+func TestVerifyUser_InvalidCode(t *testing.T) {
+	svc := NewService(ServiceDeps{
+		UserRepo:                 stubUserRepo{},
+		VerificationCodeVerifier: stubVerifier{valid: false},
+	})
+	if err := svc.VerifyUser(context.Background(), VerifyUserInput{UserID: "id", Code: "bad"}); err != ErrInvalidVerificationCode {
+		t.Fatalf("expected ErrInvalidVerificationCode, got %v", err)
 	}
 }
 
