@@ -23,6 +23,7 @@ import (
 	"catalog-api/pkg/config"
 	"catalog-api/pkg/crypto"
 	"catalog-api/pkg/logger"
+	"catalog-api/pkg/mailer"
 
 	socketio "github.com/googollee/go-socket.io"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -51,11 +52,18 @@ func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *h
 		TTL:    cfg.JWTTTL,
 	}
 
+	var verificationSender identity.VerificationSender
+	if smtpSender := mailer.NewGomailVerificationSender(cfg.SMTP.Host, cfg.SMTP.Port, cfg.SMTP.Username, cfg.SMTP.Password, cfg.SMTP.From); smtpSender != nil {
+		verificationSender = smtpSender
+	} else {
+		verificationSender = &noopVerificationSender{logr: logr}
+	}
+
 	idService := identity.NewService(identity.ServiceDeps{
 		UserRepo:                 identityRepo,
 		RoleRepo:                 identityRepo,
 		PasswordHasher:           crypto.BcryptHasher{},
-		VerificationSender:       &noopVerificationSender{logr: logr},
+		VerificationSender:       verificationSender,
 		VerificationCodeProvider: noopVerificationCodeGenerator{},
 		VerificationCodeVerifier: noopVerificationCodeGenerator{},
 		TokenProvider:            jwtProvider,
