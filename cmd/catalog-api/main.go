@@ -53,7 +53,7 @@ func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *h
 	}
 
 	var verificationSender identity.VerificationSender
-	if smtpSender := mailer.NewGomailVerificationSender(cfg.SMTP.Host, cfg.SMTP.Port, cfg.SMTP.Username, cfg.SMTP.Password, cfg.SMTP.From); smtpSender != nil {
+	if smtpSender := mailer.NewGomailVerificationSender(cfg.SMTP.Host, cfg.SMTP.Port, cfg.SMTP.Username, cfg.SMTP.Password, cfg.SMTP.From, cfg.SMTP.SkipTLS); smtpSender != nil {
 		verificationSender = smtpSender
 	} else {
 		verificationSender = &noopVerificationSender{logr: logr}

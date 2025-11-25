@@ -2,6 +2,7 @@ package mailer
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 
@@ -15,14 +16,15 @@ type GomailVerificationSender struct {
 }
 
 // NewGomailVerificationSender builds a verification sender; returns nil if host is empty.
-func NewGomailVerificationSender(host string, port int, username, password, from string) *GomailVerificationSender {
+func NewGomailVerificationSender(host string, port int, username, password, from string, skipTLSVerify bool) *GomailVerificationSender {
 	if host == "" || from == "" {
 		return nil
 	}
-	return &GomailVerificationSender{
-		dialer: gomail.NewDialer(host, port, username, password),
-		from:   from,
+	d := gomail.NewDialer(host, port, username, password)
+	if skipTLSVerify {
+		d.TLSConfig = &tls.Config{InsecureSkipVerify: true} // only for dev/test
 	}
+	return &GomailVerificationSender{dialer: d, from: from}
 }
 
 // SendVerification dispatches a simple text email with the verification code.

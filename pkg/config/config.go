@@ -32,6 +32,7 @@ type SMTPConfig struct {
 	Username string
 	Password string
 	From     string
+	SkipTLS  bool
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -48,6 +49,7 @@ func Load() Config {
 			Username: os.Getenv("SMTP_USERNAME"),
 			Password: os.Getenv("SMTP_PASSWORD"),
 			From:     os.Getenv("SMTP_FROM"),
+			SkipTLS:  boolOrDefault("SMTP_TLS_SKIP_VERIFY", false),
 		},
 		AdminSeed: AdminSeed{
 			Email:    os.Getenv("ADMIN_EMAIL"),
@@ -86,6 +88,18 @@ func intOrDefault(key string, fallback int) int {
 	if v := os.Getenv(key); v != "" {
 		if parsed, err := strconv.Atoi(v); err == nil {
 			return parsed
+		}
+	}
+	return fallback
+}
+
+func boolOrDefault(key string, fallback bool) bool {
+	if v := os.Getenv(key); v != "" {
+		switch v {
+		case "1", "true", "TRUE", "True", "yes", "Y", "y":
+			return true
+		case "0", "false", "FALSE", "False", "no", "N", "n":
+			return false
 		}
 	}
 	return fallback

@@ -148,3 +148,8 @@ func TestUpdateUserRole_RepoRequired(t *testing.T) {
 		t.Fatalf("expected ErrRepositoryNotConfigured, got %v", err)
 	}
 }
+
+type stubHasher struct{}
+
+func (stubHasher) Hash(password string) (string, error) { return "hashed", nil }
+func (stubHasher) Compare(hash, password string) error  { return nil }
