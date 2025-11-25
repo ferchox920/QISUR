@@ -57,7 +57,8 @@ func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *h
 	}
 
 	catService := catalog.NewService(catalog.ServiceDeps{
-		CategoryRepo: nil, // TODO: wire Postgres repository when implemented.
+		CategoryRepo: nil, // TODO: wire Postgres category repository.
+		ProductRepo:  nil, // TODO: wire Postgres product repository.
 	})
 	catalogHandler := httpapi.NewCatalogHandler(catService)
 

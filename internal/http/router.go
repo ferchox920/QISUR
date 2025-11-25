@@ -40,6 +40,20 @@ func (f *RouterFactory) Build() *gin.Engine {
 			adminCats.PUT("/:id", f.CatalogHandler.UpdateCategory)
 			adminCats.DELETE("/:id", f.CatalogHandler.DeleteCategory)
 		}
+
+		prod := api.Group("/products")
+		{
+			prod.GET("", f.CatalogHandler.ListProducts)
+			prod.GET("/:id", f.CatalogHandler.GetProduct)
+
+			adminProd := prod.Group("")
+			if f.TokenValidator != nil {
+				adminProd.Use(AuthMiddleware(f.TokenValidator), RoleMiddleware("admin"))
+			}
+			adminProd.POST("", f.CatalogHandler.CreateProduct)
+			adminProd.PUT("/:id", f.CatalogHandler.UpdateProduct)
+			adminProd.DELETE("/:id", f.CatalogHandler.DeleteProduct)
+		}
 	}
 	if f.IdentityHandler != nil {
 		identityGroup := api.Group("/identity")

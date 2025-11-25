@@ -66,3 +66,27 @@ type UpdateCategoryRequest struct {
 	Name        string `json:"name" binding:"omitempty"`
 	Description string `json:"description" binding:"omitempty"`
 }
+
+// Product DTOs
+
+type ProductResponse struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Price       int64  `json:"price"`
+	Stock       int64  `json:"stock"`
+}
+
+type CreateProductRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description" binding:"omitempty"`
+	Price       int64  `json:"price" binding:"required,min=0"`
+	Stock       int64  `json:"stock" binding:"required,min=0"`
+}
+
+type UpdateProductRequest struct {
+	Name        string `json:"name" binding:"omitempty"`
+	Description string `json:"description" binding:"omitempty"`
+	Price       int64  `json:"price" binding:"omitempty,min=0"`
+	Stock       int64  `json:"stock" binding:"omitempty,min=0"`
+}
