@@ -165,6 +165,42 @@ func (h *CatalogHandler) DeleteProduct(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// Search allows querying products or categories with pagination and sorting.
+func (h *CatalogHandler) Search(c *gin.Context) {
+	kind := c.Query("type")
+	query := c.Query("q")
+	limit := parseQueryInt(c, "limit", 20)
+	offset := parseQueryInt(c, "offset", 0)
+	sortBy := c.Query("sort")
+	sortDir := c.Query("order")
+
+	result, err := h.svc.Search(c.Request.Context(), catalog.SearchFilter{
+		Kind:   kind,
+		Query:  query,
+		Limit:  limit,
+		Offset: offset,
+		SortBy: sortBy,
+		SortDir: sortDir,
+	})
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if kind == "category" {
+		c.JSON(http.StatusOK, gin.H{
+			"total":      result.Total,
+			"categories": toCategoryResponses(result.Categories),
+		})
+		return
+	}
+	// default to products
+	c.JSON(http.StatusOK, gin.H{
+		"total":    result.Total,
+		"products": toProductResponses(result.Products),
+	})
+}
+
 func toProductResponses(products []catalog.Product) []ProductResponse {
 	out := make([]ProductResponse, 0, len(products))
 	for _, p := range products {

@@ -54,6 +54,8 @@ func (f *RouterFactory) Build() *gin.Engine {
 			adminProd.PUT("/:id", f.CatalogHandler.UpdateProduct)
 			adminProd.DELETE("/:id", f.CatalogHandler.DeleteProduct)
 		}
+
+		api.GET("/search", f.CatalogHandler.Search)
 	}
 	if f.IdentityHandler != nil {
 		identityGroup := api.Group("/identity")

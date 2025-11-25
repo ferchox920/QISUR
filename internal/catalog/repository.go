@@ -8,6 +8,7 @@ type CategoryRepository interface {
 	CreateCategory(ctx context.Context, cat Category) (Category, error)
 	UpdateCategory(ctx context.Context, cat Category) (Category, error)
 	DeleteCategory(ctx context.Context, id string) error
+	SearchCategories(ctx context.Context, filter SearchFilter) ([]Category, int64, error)
 }
 
 // ProductRepository holds persistence contracts for products.
@@ -22,6 +23,19 @@ type ProductRepository interface {
 
 // ProductFilter supports pagination and future filtering.
 type ProductFilter struct {
-	Limit  int
-	Offset int
+	Query   string
+	Limit   int
+	Offset  int
+	SortBy  string
+	SortDir string
+}
+
+// SearchFilter supports combined search for products or categories.
+type SearchFilter struct {
+	Kind    string // "product" or "category"
+	Query   string
+	Limit   int
+	Offset  int
+	SortBy  string
+	SortDir string
 }

@@ -9,4 +9,5 @@ var (
 	ErrInvalidCategoryID       = errors.New("invalid category id")
 	ErrInvalidProduct          = errors.New("invalid product")
 	ErrInvalidProductID        = errors.New("invalid product id")
+	ErrInvalidSearchKind       = errors.New("invalid search kind")
 )

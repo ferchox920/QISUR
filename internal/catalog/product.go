@@ -2,7 +2,7 @@ package catalog
 
 import "time"
 
-// TODO: define product entity.
+// Product represents an item in the catalog. IDs are UUID strings.
 type Product struct {
 	ID          string
 	Name        string

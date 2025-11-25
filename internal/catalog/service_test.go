@@ -31,6 +31,12 @@ func (s *stubCategoryRepo) ListCategories(ctx context.Context) ([]Category, erro
 	return out, nil
 }
 
+func (s *stubCategoryRepo) SearchCategories(ctx context.Context, filter SearchFilter) ([]Category, int64, error) {
+	// simplistic search ignoring query/sort for tests
+	items, err := s.ListCategories(ctx)
+	return items, int64(len(items)), err
+}
+
 func (s *stubCategoryRepo) CreateCategory(ctx context.Context, cat Category) (Category, error) {
 	if s.errCreate != nil {
 		return Category{}, s.errCreate
@@ -140,5 +146,38 @@ func TestDeleteCategory_Success(t *testing.T) {
 	cats, _ := repo.ListCategories(context.Background())
 	if len(cats) != 0 {
 		t.Fatalf("expected empty repo after delete")
+	}
+}
+
+type stubProductRepo struct{}
+
+func (stubProductRepo) ListProducts(ctx context.Context, filter ProductFilter) ([]Product, error) {
+	return nil, nil
+}
+
+func (stubProductRepo) CountProducts(ctx context.Context, filter ProductFilter) (int64, error) {
+	return 0, nil
+}
+
+func (stubProductRepo) GetProduct(ctx context.Context, id string) (Product, error) {
+	return Product{}, nil
+}
+
+func (stubProductRepo) CreateProduct(ctx context.Context, p Product) (Product, error) {
+	return Product{}, nil
+}
+
+func (stubProductRepo) UpdateProduct(ctx context.Context, p Product) (Product, error) {
+	return Product{}, nil
+}
+
+func (stubProductRepo) DeleteProduct(ctx context.Context, id string) error {
+	return nil
+}
+
+func TestSearch_InvalidKind(t *testing.T) {
+	svc := NewService(ServiceDeps{CategoryRepo: newStubRepo(), ProductRepo: stubProductRepo{}})
+	if _, err := svc.Search(context.Background(), SearchFilter{Kind: "unknown"}); !errors.Is(err, ErrInvalidSearchKind) {
+		t.Fatalf("expected ErrInvalidSearchKind, got %v", err)
 	}
 }

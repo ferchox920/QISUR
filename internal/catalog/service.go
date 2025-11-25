@@ -13,6 +13,7 @@ type Service interface {
 	CreateProduct(ctx context.Context, input CreateProductInput) (Product, error)
 	UpdateProduct(ctx context.Context, input UpdateProductInput) (Product, error)
 	DeleteProduct(ctx context.Context, id string) error
+	Search(ctx context.Context, filter SearchFilter) (SearchResult, error)
 }
 
 // CreateCategoryInput captures creation fields.
@@ -43,6 +44,13 @@ type UpdateProductInput struct {
 	Description string
 	Price       int64
 	Stock       int64
+}
+
+// SearchResult wraps search responses.
+type SearchResult struct {
+	Products   []Product
+	Categories []Category
+	Total      int64
 }
 
 // ServiceDeps wires dependencies into the catalog service.
@@ -181,6 +189,45 @@ func (s *service) DeleteProduct(ctx context.Context, id string) error {
 		return ErrInvalidProductID
 	}
 	return s.deps.ProductRepo.DeleteProduct(ctx, id)
+}
+
+// Search handles combined search for products or categories.
+func (s *service) Search(ctx context.Context, filter SearchFilter) (SearchResult, error) {
+	if filter.Limit <= 0 {
+		filter.Limit = 20
+	}
+	if filter.Offset < 0 {
+		filter.Offset = 0
+	}
+	switch filter.Kind {
+	case "product":
+		if s.deps.ProductRepo == nil {
+			return SearchResult{}, ErrRepositoryNotConfigured
+		}
+		pf := ProductFilter{
+			Query:   filter.Query,
+			Limit:   filter.Limit,
+			Offset:  filter.Offset,
+			SortBy:  filter.SortBy,
+			SortDir: filter.SortDir,
+		}
+		items, total, err := s.ListProducts(ctx, pf)
+		if err != nil {
+			return SearchResult{}, err
+		}
+		return SearchResult{Products: items, Total: total}, nil
+	case "category":
+		if s.deps.CategoryRepo == nil {
+			return SearchResult{}, ErrRepositoryNotConfigured
+		}
+		items, total, err := s.deps.CategoryRepo.SearchCategories(ctx, filter)
+		if err != nil {
+			return SearchResult{}, err
+		}
+		return SearchResult{Categories: items, Total: total}, nil
+	default:
+		return SearchResult{}, ErrInvalidSearchKind
+	}
 }
 
 func validateProductInput(name string, price, stock int64) error {
