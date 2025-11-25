@@ -41,26 +41,45 @@ func (s *service) ListCategories(ctx context.Context) ([]Category, error) {
 	if s.deps.CategoryRepo == nil {
 		return nil, ErrRepositoryNotConfigured
 	}
-	return nil, ErrNotImplemented
+	return s.deps.CategoryRepo.ListCategories(ctx)
 }
 
 func (s *service) CreateCategory(ctx context.Context, input CreateCategoryInput) (Category, error) {
 	if s.deps.CategoryRepo == nil {
 		return Category{}, ErrRepositoryNotConfigured
 	}
-	return Category{}, ErrNotImplemented
+	if input.Name == "" {
+		return Category{}, ErrInvalidCategory
+	}
+	return s.deps.CategoryRepo.CreateCategory(ctx, Category{
+		Name:        input.Name,
+		Description: input.Description,
+	})
 }
 
 func (s *service) UpdateCategory(ctx context.Context, input UpdateCategoryInput) (Category, error) {
 	if s.deps.CategoryRepo == nil {
 		return Category{}, ErrRepositoryNotConfigured
 	}
-	return Category{}, ErrNotImplemented
+	if input.ID == "" {
+		return Category{}, ErrInvalidCategoryID
+	}
+	if input.Name == "" {
+		return Category{}, ErrInvalidCategory
+	}
+	return s.deps.CategoryRepo.UpdateCategory(ctx, Category{
+		ID:          input.ID,
+		Name:        input.Name,
+		Description: input.Description,
+	})
 }
 
 func (s *service) DeleteCategory(ctx context.Context, id string) error {
 	if s.deps.CategoryRepo == nil {
 		return ErrRepositoryNotConfigured
 	}
-	return ErrNotImplemented
+	if id == "" {
+		return ErrInvalidCategoryID
+	}
+	return s.deps.CategoryRepo.DeleteCategory(ctx, id)
 }
