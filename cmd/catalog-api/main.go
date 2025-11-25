@@ -27,6 +27,7 @@ import (
 
 	socketio "github.com/googollee/go-socket.io"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 )
 
 // bootstrap sets up infrastructure; domain wiring remains minimal and TODO-driven.
@@ -97,6 +98,8 @@ func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *h
 }
 
 func main() {
+	_ = godotenv.Load()
+
 	ctx := context.Background()
 
 	dbPool, _, routerFactory, wsServer, err := bootstrap(ctx)
