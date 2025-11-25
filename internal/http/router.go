@@ -39,11 +39,14 @@ func (f *RouterFactory) Build() *gin.Engine {
 			protected.Use(AuthMiddleware(f.TokenValidator))
 		}
 
+		protected.PUT("/users/:id", f.IdentityHandler.UpdateUser)
+
 		adminProtected := protected.Group("")
 		if f.TokenValidator != nil {
 			adminProtected.Use(RoleMiddleware("admin"))
 		}
 		adminProtected.POST("/users/:id/block", f.IdentityHandler.BlockUser)
+		adminProtected.PUT("/users/:id/role", f.IdentityHandler.UpdateUserRole)
 	}
 
 	// Swagger docs placeholder.

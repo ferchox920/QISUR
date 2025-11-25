@@ -10,6 +10,8 @@ type Service interface {
 	BlockUser(ctx context.Context, input BlockUserInput) error
 	Login(ctx context.Context, input LoginInput) (AuthToken, error)
 	SeedAdmin(ctx context.Context, seed AdminSeedInput) error
+	UpdateUser(ctx context.Context, input UpdateUserInput) (User, error)
+	UpdateUserRole(ctx context.Context, input UpdateUserRoleInput) (User, error)
 }
 
 // RegisterUserInput encapsulates signup data.
@@ -21,14 +23,14 @@ type RegisterUserInput struct {
 
 // VerifyUserInput contains verification challenge data.
 type VerifyUserInput struct {
-	UserID string
+	UserID UserID
 	Code   string
 }
 
 // BlockUserInput captures admin-driven blocks.
 type BlockUserInput struct {
 	AdminID string
-	UserID  string
+	UserID  UserID
 	Reason  string
 }
 
@@ -41,6 +43,20 @@ type LoginInput struct {
 // AuthToken captures authentication token response.
 type AuthToken struct {
 	Token string
+}
+
+// UpdateUserInput contains updatable fields and actor info.
+type UpdateUserInput struct {
+	UserID    UserID
+	UpdaterID string
+	FullName  string
+}
+
+// UpdateUserRoleInput restricts role change to admin operations.
+type UpdateUserRoleInput struct {
+	AdminID string
+	UserID  UserID
+	Role    RoleName
 }
 
 // AdminSeedInput is used to pre-create an admin from configuration.
@@ -118,4 +134,20 @@ func (s *service) Login(ctx context.Context, input LoginInput) (AuthToken, error
 	}
 	// TODO: fetch user, validate password, status, verification, block checks, then issue token.
 	return AuthToken{}, ErrNotImplemented
+}
+
+func (s *service) UpdateUser(ctx context.Context, input UpdateUserInput) (User, error) {
+	if s.deps.UserRepo == nil {
+		return User{}, ErrRepositoryNotConfigured
+	}
+	// TODO: authorize updater, then apply updates to user fields (no role change here).
+	return User{}, ErrNotImplemented
+}
+
+func (s *service) UpdateUserRole(ctx context.Context, input UpdateUserRoleInput) (User, error) {
+	if s.deps.UserRepo == nil {
+		return User{}, ErrRepositoryNotConfigured
+	}
+	// TODO: ensure admin permissions, update role via RoleRepo/UserRepo.
+	return User{}, ErrNotImplemented
 }

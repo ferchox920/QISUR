@@ -23,6 +23,14 @@ type LoginResponse struct {
 	Token string `json:"token"`
 }
 
+type UpdateUserRequest struct {
+	FullName string `json:"full_name" binding:"omitempty"`
+}
+
+type UpdateUserRoleRequest struct {
+	Role string `json:"role" binding:"required"`
+}
+
 type VerifyUserRequest struct {
 	UserID string `json:"user_id" binding:"required"`
 	Code   string `json:"code" binding:"required"`

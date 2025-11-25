@@ -97,6 +97,29 @@ func (h *IdentityHandler) BlockUser(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+func (h *IdentityHandler) UpdateUser(c *gin.Context) {
+	var req UpdateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID := c.Param("id")
+	updaterID := c.GetString("user_id")
+
+	updated, err := h.svc.UpdateUser(c.Request.Context(), identity.UpdateUserInput{
+		UserID:    identity.UserID(userID),
+		UpdaterID: updaterID,
+		FullName:  req.FullName,
+	})
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, toIdentityResponse(updated))
+}
+
 func (h *IdentityHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -114,6 +137,29 @@ func (h *IdentityHandler) Login(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, LoginResponse{Token: token.Token})
+}
+
+func (h *IdentityHandler) UpdateUserRole(c *gin.Context) {
+	var req UpdateUserRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID := c.Param("id")
+	adminID := c.GetString("user_id")
+
+	updated, err := h.svc.UpdateUserRole(c.Request.Context(), identity.UpdateUserRoleInput{
+		AdminID: adminID,
+		UserID:  identity.UserID(userID),
+		Role:    identity.RoleName(req.Role),
+	})
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, toIdentityResponse(updated))
 }
 
 func toIdentityResponse(u identity.User) IdentityResponse {

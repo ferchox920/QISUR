@@ -54,7 +54,7 @@ func (r *IdentityRepository) GetByEmail(ctx context.Context, email string) (iden
 	return scanUser(row)
 }
 
-func (r *IdentityRepository) GetByID(ctx context.Context, id string) (identity.User, error) {
+func (r *IdentityRepository) GetByID(ctx context.Context, id identity.UserID) (identity.User, error) {
 	if r.pool == nil {
 		return identity.User{}, identity.ErrRepositoryNotConfigured
 	}
@@ -68,7 +68,7 @@ func (r *IdentityRepository) GetByID(ctx context.Context, id string) (identity.U
 	return scanUser(row)
 }
 
-func (r *IdentityRepository) SetVerification(ctx context.Context, userID string, verified bool) error {
+func (r *IdentityRepository) SetVerification(ctx context.Context, userID identity.UserID, verified bool) error {
 	if r.pool == nil {
 		return identity.ErrRepositoryNotConfigured
 	}
@@ -82,7 +82,7 @@ func (r *IdentityRepository) SetVerification(ctx context.Context, userID string,
 	return nil
 }
 
-func (r *IdentityRepository) UpdateStatus(ctx context.Context, userID string, status identity.UserStatus) error {
+func (r *IdentityRepository) UpdateStatus(ctx context.Context, userID identity.UserID, status identity.UserStatus) error {
 	if r.pool == nil {
 		return identity.ErrRepositoryNotConfigured
 	}
@@ -104,7 +104,7 @@ func (r *IdentityRepository) EnsureRole(ctx context.Context, role identity.RoleN
 	return err
 }
 
-func (r *IdentityRepository) AssignRole(ctx context.Context, userID string, role identity.RoleName) error {
+func (r *IdentityRepository) AssignRole(ctx context.Context, userID identity.UserID, role identity.RoleName) error {
 	if r.pool == nil {
 		return identity.ErrRepositoryNotConfigured
 	}
