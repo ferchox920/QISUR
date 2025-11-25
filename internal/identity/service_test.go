@@ -92,6 +92,17 @@ func (failingSender) SendVerification(ctx context.Context, email, code string) e
 	return errors.New("send failed")
 }
 
+type trackingSender struct {
+	sentTo   string
+	sentCode string
+}
+
+func (t *trackingSender) SendVerification(ctx context.Context, email, code string) error {
+	t.sentTo = email
+	t.sentCode = code
+	return nil
+}
+
 type trackingRepo struct {
 	stubUserRepo
 	deleted bool
@@ -125,6 +136,25 @@ func TestRegister_RollsBackOnSendFailure(t *testing.T) {
 	}
 	if !repo.deleted {
 		t.Fatalf("expected DeleteUser to be called on rollback")
+	}
+}
+
+func TestRegister_UsesVerificationSenderWhenConfigured(t *testing.T) {
+	repo := &trackingRepo{}
+	sender := &trackingSender{}
+	code := "654321"
+	svc := NewService(ServiceDeps{
+		UserRepo:                 repo,
+		RoleRepo:                 repo,
+		PasswordHasher:           stubHasher{},
+		VerificationCodeProvider: fixedCodeProvider{code: code},
+		VerificationSender:       sender,
+	})
+	if _, err := svc.RegisterClient(context.Background(), RegisterUserInput{Email: "a@b.c", Password: "secret123", FullName: "Test"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sender.sentTo != "a@b.c" || sender.sentCode != code {
+		t.Fatalf("sender not invoked as expected: %+v", sender)
 	}
 }
 

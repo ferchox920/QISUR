@@ -56,6 +56,7 @@ func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *h
 	if smtpSender := mailer.NewGomailVerificationSender(cfg.SMTP.Host, cfg.SMTP.Port, cfg.SMTP.Username, cfg.SMTP.Password, cfg.SMTP.From, cfg.SMTP.SkipTLS); smtpSender != nil {
 		verificationSender = smtpSender
 	} else {
+		logr.Printf("warning: SMTP not configured, falling back to noop verification sender")
 		verificationSender = &noopVerificationSender{logr: logr}
 	}
 
