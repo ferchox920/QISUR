@@ -2,7 +2,6 @@ package mailer
 
 import (
 	"bufio"
-	"fmt"
 	"net"
 	"strconv"
 	"strings"
