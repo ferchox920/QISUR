@@ -779,3 +779,25 @@ swagger: "2.0"
       summary: Relate product to category
       tags:
       - Products
+  /events:
+    get:
+      summary: WebSocket events catalog
+      tags:
+      - Events
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Event list
+          schema:
+            type: object
+            properties:
+              events:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    payload:
+                      type: string

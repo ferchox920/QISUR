@@ -98,3 +98,14 @@ type ProductHistoryResponse struct {
 	Stock     int64  `json:"stock"`
 	ChangedAt string `json:"changed_at"`
 }
+
+// Event DTOs
+type EventInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Payload     string `json:"payload"`
+}
+
+type EventsResponse struct {
+	Events []EventInfo `json:"events"`
+}

@@ -83,6 +83,8 @@ func (f *RouterFactory) Build() *gin.Engine {
 		adminProtected.PUT("/users/:id/role", f.IdentityHandler.UpdateUserRole)
 	}
 
+	api.GET("/events", EventsCatalog)
+
 	// Serve swagger spec from local file to avoid stale builds.
 	router.GET("/swagger/doc.json", func(c *gin.Context) {
 		c.File("docs/swagger/swagger.json")

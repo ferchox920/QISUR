@@ -7,7 +7,7 @@ const docTemplate = `{
     "schemes": {{ marshal .Schemes }},
     "swagger": "2.0",
     "info": {
-        "description": "{{escape .Description}}",
+        "description": "{{escape .Description}}\n\nWebSocket eventos (namespace \"/\"):\n- category.created {id,name,description}\n- category.updated {id,name,description}\n- category.deleted {id}\n- product.created {id,name,description,price,stock}\n- product.updated {id,name,description,price,stock}\n- product.deleted {id}\n- product.category_assigned {product_id,category_id}",
         "title": "{{.Title}}",
         "contact": {},
         "version": "{{.Version}}"

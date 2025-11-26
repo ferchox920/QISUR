@@ -42,6 +42,7 @@ func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *h
 
 	wsServer := socketio.NewServer(nil)
 	go wsServer.Serve()
+	eventEmitter := httpapi.NewSocketEmitter(wsServer)
 
 	identityRepo := postgres.NewIdentityRepository(dbPool)
 	catalogRepo := postgres.NewCatalogRepository(dbPool)
@@ -83,7 +84,7 @@ func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *h
 		CategoryRepo: catalogRepo,
 		ProductRepo:  catalogRepo,
 	})
-	catalogHandler := httpapi.NewCatalogHandler(catService)
+	catalogHandler := httpapi.NewCatalogHandler(catService, eventEmitter)
 
 	identityHandler := httpapi.NewIdentityHandler(idService)
 

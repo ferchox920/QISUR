@@ -213,6 +213,13 @@ func (r *CatalogRepository) UpdateProduct(ctx context.Context, p catalog.Product
 	if r.pool == nil {
 		return catalog.Product{}, catalog.ErrRepositoryNotConfigured
 	}
+	var original struct {
+		Price int64
+		Stock int64
+	}
+	if err := r.pool.QueryRow(ctx, `SELECT price::bigint, stock FROM products WHERE id = $1`, p.ID).Scan(&original.Price, &original.Stock); err != nil {
+		return catalog.Product{}, err
+	}
 	row := r.pool.QueryRow(ctx, `
 		UPDATE products
 		SET name = $1, description = $2, price = $3, stock = $4, updated_at = NOW()
@@ -222,6 +229,13 @@ func (r *CatalogRepository) UpdateProduct(ctx context.Context, p catalog.Product
 	var out catalog.Product
 	if err := row.Scan(&out.ID, &out.Name, &out.Description, &out.Price, &out.Stock, &out.CreatedAt, &out.UpdatedAt); err != nil {
 		return catalog.Product{}, err
+	}
+	// Record history only when price or stock changed.
+	if original.Price != out.Price || original.Stock != out.Stock {
+		_, _ = r.pool.Exec(ctx, `
+			INSERT INTO product_history (product_id, price, stock)
+			VALUES ($1, $2, $3)
+		`, out.ID, out.Price, out.Stock)
 	}
 	return out, nil
 }

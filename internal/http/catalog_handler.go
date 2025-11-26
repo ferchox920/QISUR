@@ -12,11 +12,12 @@ import (
 
 // CatalogHandler orchestrates catalog endpoints.
 type CatalogHandler struct {
-	svc catalog.Service
+	svc     catalog.Service
+	emitter EventEmitter
 }
 
-func NewCatalogHandler(svc catalog.Service) *CatalogHandler {
-	return &CatalogHandler{svc: svc}
+func NewCatalogHandler(svc catalog.Service, emitter EventEmitter) *CatalogHandler {
+	return &CatalogHandler{svc: svc, emitter: emitter}
 }
 
 // ListCategories godoc
@@ -57,6 +58,9 @@ func (h *CatalogHandler) CreateCategory(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if h.emitter != nil {
+		h.emitter.Emit("category.created", toCategoryResponse(cat))
+	}
 	c.JSON(http.StatusCreated, toCategoryResponse(cat))
 }
 
@@ -86,6 +90,9 @@ func (h *CatalogHandler) UpdateCategory(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if h.emitter != nil {
+		h.emitter.Emit("category.updated", toCategoryResponse(cat))
+	}
 	c.JSON(http.StatusOK, toCategoryResponse(cat))
 }
 
@@ -101,6 +108,9 @@ func (h *CatalogHandler) DeleteCategory(c *gin.Context) {
 	if err := h.svc.DeleteCategory(c.Request.Context(), id); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+	if h.emitter != nil {
+		h.emitter.Emit("category.deleted", gin.H{"id": id})
 	}
 	c.Status(http.StatusNoContent)
 }
@@ -189,6 +199,9 @@ func (h *CatalogHandler) CreateProduct(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if h.emitter != nil {
+		h.emitter.Emit("product.created", toProductResponse(product))
+	}
 	c.JSON(http.StatusCreated, toProductResponse(product))
 }
 
@@ -220,6 +233,9 @@ func (h *CatalogHandler) UpdateProduct(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if h.emitter != nil {
+		h.emitter.Emit("product.updated", toProductResponse(product))
+	}
 	c.JSON(http.StatusOK, toProductResponse(product))
 }
 
@@ -235,6 +251,9 @@ func (h *CatalogHandler) DeleteProduct(c *gin.Context) {
 	if err := h.svc.DeleteProduct(c.Request.Context(), id); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+	if h.emitter != nil {
+		h.emitter.Emit("product.deleted", gin.H{"id": id})
 	}
 	c.Status(http.StatusNoContent)
 }
@@ -253,6 +272,9 @@ func (h *CatalogHandler) AddProductCategory(c *gin.Context) {
 	if err := h.svc.AssignProductCategory(c.Request.Context(), productID, categoryID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+	if h.emitter != nil {
+		h.emitter.Emit("product.category_assigned", gin.H{"product_id": productID, "category_id": categoryID})
 	}
 	c.Status(http.StatusNoContent)
 }
