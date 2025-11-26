@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Event Monitor</title>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-sYO4D28iK9amMSMext0Rv1b3Ob+QMMKIh6UE8QslsDJ+Xx3TMOH2FZsnRvqYsggq" crossorigin="anonymous"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 16px; background: #0b1220; color: #f4f6fb; }
+    h1 { margin-bottom: 8px; }
+    .summary { display: flex; gap: 16px; align-items: center; margin-bottom: 12px; }
+    .badge { background: #1f2b46; padding: 8px 12px; border-radius: 8px; border: 1px solid #2f3c5a; }
+    .badge span { font-weight: bold; color: #5dd39e; }
+    #events { width: 100%; border-collapse: collapse; background: #121a2d; }
+    #events th, #events td { padding: 8px; border-bottom: 1px solid #1f2b46; }
+    #events th { text-align: left; background: #1a2336; }
+    .event-name { color: #5db2ff; }
+    .payload { font-family: "SFMono-Regular", Consolas, monospace; color: #b9d3ff; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>Live Events</h1>
+  <div class="summary">
+    <div class="badge">Total <span id="total">0</span></div>
+  </div>
+  <table id="events">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Event</th>
+        <th>Payload</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <script>
+    const totalEl = document.getElementById('total');
+    const tbody = document.getElementById('tbody');
+    let count = 0;
+
+    const socket = io("/", { transports: ["websocket"] });
+
+    function addRow(name, data) {
+      count++;
+      totalEl.textContent = count;
+      const tr = document.createElement('tr');
+      const payload = JSON.stringify(data, null, 2);
+      tr.innerHTML = `
+        <td>${count}</td>
+        <td class="event-name">${name}</td>
+        <td class="payload"><pre style="margin:0">${payload}</pre></td>
+        <td>${new Date().toLocaleTimeString()}</td>
+      `;
+      tbody.prepend(tr);
+      // keep last 100
+      while (tbody.children.length > 100) {
+        tbody.removeChild(tbody.lastChild);
+      }
+    }
+
+    const events = [
+      "category.created",
+      "category.updated",
+      "category.deleted",
+      "product.created",
+      "product.updated",
+      "product.deleted",
+      "product.category_assigned"
+    ];
+
+    socket.on("connect", () => addRow("socket.connected", { id: socket.id }));
+    socket.on("disconnect", () => addRow("socket.disconnected", {}));
+
+    events.forEach(ev => {
+      socket.on(ev, data => addRow(ev, data));
+    });
+  </script>
+</body>
+</html>

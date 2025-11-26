@@ -91,6 +91,7 @@ func (f *RouterFactory) Build() *gin.Engine {
 	})
 	swaggerURL := ginSwagger.URL("/swagger/doc.json")
 	router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, swaggerURL, ginSwagger.InstanceName("swagger")))
+	router.StaticFile("/events-ui", "web/events.html")
 
 	return router
 }
