@@ -1,0 +1,49 @@
+@startuml
+entity "ROLES" as roles {
+    *name : string <<PK>>
+}
+
+entity "USERS" as users {
+    *id : uuid <<PK>>
+    role : string <<FK>>
+    email : string <<UNIQUE>>
+    status : enum [pending_verification|active|blocked]
+    is_verified : bool
+}
+
+entity "VERIFICATION_CODES" as verification_codes {
+    *user_id : uuid <<PK, FK>>
+}
+
+entity "CATEGORIES" as categories {
+    *id : uuid <<PK>>
+    name : string <<UNIQUE>>
+}
+
+entity "PRODUCTS" as products {
+    *id : uuid <<PK>>
+    name : string
+    price : numeric(18,2)
+    stock : bigint
+}
+
+entity "PRODUCT_CATEGORY" as product_category {
+    *product_id : uuid <<PK, FK>>
+    *category_id : uuid <<PK, FK>>
+}
+
+entity "PRODUCT_HISTORY" as product_history {
+    *id : uuid <<PK>>
+    product_id : uuid <<FK>>
+    price : numeric(18,2)
+    stock : bigint
+    changed_at : timestamptz
+}
+
+' Relaciones y cardinalidades (notacion de patas de cuervo)
+roles ||--o{ users : "1:N"
+users ||--o| verification_codes : "1:0..1"
+products ||--o{ product_history : "1:N"
+products ||--o{ product_category : "1:N"
+categories ||--o{ product_category : "1:N"
+@enduml

@@ -93,6 +93,8 @@ func (f *RouterFactory) Build() *gin.Engine {
 		c.File("docs/swagger/swagger.json")
 	})
 	swaggerURL := ginSwagger.URL("/swagger/doc.json")
+	// Expose ER diagram for reference outside swagger wildcard.
+	router.StaticFile("/db-schema.puml", "docs/db-schema.puml")
 	router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, swaggerURL, ginSwagger.InstanceName("swagger")))
 	router.StaticFile("/events-ui", "web/events.html")
 

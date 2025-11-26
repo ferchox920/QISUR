@@ -1,16 +1,16 @@
 # QISUR
 
-API de catǭlogo e identidad con REST + WebSockets.
+API de catalogo e identidad con REST + WebSockets.
 
 ## Requisitos
 - Go 1.21+
 - Docker y docker-compose (para base y migraciones)
 - PostgreSQL (si corres sin Docker)
 
-## Instalaci��n y ejecuci��n
+## Instalacion y ejecucion
 1. Clonar el repo y configurar el entorno:
    ```bash
-   .env.example .env 
+   cp .env.example .env
    ```
 2. Levantar base y aplicar migraciones:
    ```bash
@@ -28,38 +28,12 @@ API de catǭlogo e identidad con REST + WebSockets.
    ```
    Swagger disponible en `http://localhost:8080/docs` (spec en `/swagger/doc.json`).
 
-## Configuraci��n del entorno
+## Configuracion del entorno
 Variables clave (ver `.env.example`):
 - `DATABASE_URL`: URL de Postgres (por defecto `postgres://catalog:catalog@db:5432/catalog?sslmode=disable` en Docker).
 - `HTTP_PORT`: Puerto HTTP (8080 por defecto).
-- SMTP (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`) para env��o de verificaci��n.
+- SMTP (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`) para envio de verificacion.
 - JWT (`JWT_SECRET`, `JWT_ISSUER`, `JWT_TTL`).
-
-Plantilla `.env.example`:
-```
-HTTP_PORT=8080
-POSTGRES_USER=catalog
-POSTGRES_PASSWORD=catalog
-POSTGRES_DB=catalog
-POSTGRES_HOST=localhost
-POSTGRES_PORT=55432
-DATABASE_URL=postgres://catalog:catalog@localhost:55432/catalog?sslmode=disable
-
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=changeme
-ADMIN_FULL_NAME=Catalog Admin
-
-JWT_SECRET=changeme
-JWT_ISSUER=catalog-api
-JWT_TTL=15m
-
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=you@example.com
-SMTP_PASSWORD=your-app-password
-SMTP_FROM=you@example.com
-SMTP_TLS_SKIP_VERIFY=false
-```
 
 ## WebSockets
 - Endpoint WebSocket nativo en `GET /ws`.
@@ -68,7 +42,7 @@ SMTP_TLS_SKIP_VERIFY=false
   - `category.created|updated|deleted`
   - `product.created|updated|deleted`
   - `product.category_assigned`
-- Catǭlogo de eventos: `GET /api/v1/events`.
+- Catalogo de eventos: `GET /api/v1/events`.
 
 Ejemplo de cliente (JavaScript):
 ```js
@@ -82,25 +56,73 @@ ws.onmessage = (evt) => {
 ```
 
 ## Ejemplos de uso (REST)
-- Login:
-  ```bash
-  curl -X POST http://localhost:8080/api/v1/identity/login \
-    -H "Content-Type: application/json" \
-    -d '{"email":"user1@example.com","password":"password123"}'
-  ```
-- Crear categor��a (requiere Bearer token con rol admin):
-  ```bash
-  curl -X POST http://localhost:8080/api/v1/categories \
-    -H "Authorization: Bearer <TOKEN>" \
-    -H "Content-Type: application/json" \
-    -d '{"name":"Garden","description":"Outdoor and garden"}'
-  ```
-- Asignar categor��a a producto:
-  ```bash
-  curl -X POST http://localhost:8080/api/v1/products/<product_id>/categories/<category_id> \
-    -H "Authorization: Bearer <TOKEN>"
-  ```
-- Historial de producto (filtrado):
-  ```bash
-  curl "http://localhost:8080/api/v1/products/<product_id>/history?start=2025-01-01T00:00:00Z&end=2025-12-31T23:59:59Z"
-  ```
+Registro y autenticacion:
+```bash
+curl -X POST http://localhost:8080/api/v1/identity/users/client \
+  -H "Content-Type: application/json" \
+  -d '{"email":"client@example.com","password":"password123","full_name":"Cliente Uno"}'
+
+curl -X POST http://localhost:8080/api/v1/identity/users \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"password123","full_name":"Usuario Uno"}'
+
+curl -X POST http://localhost:8080/api/v1/identity/verify \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"<USER_ID>","code":"<CODE>"}'
+
+curl -X POST http://localhost:8080/api/v1/identity/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user1@example.com","password":"password123"}'
+```
+
+Categorias:
+```bash
+curl http://localhost:8080/api/v1/categories
+
+curl -X POST http://localhost:8080/api/v1/categories \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Garden","description":"Outdoor and garden"}'
+
+curl -X PUT http://localhost:8080/api/v1/categories/<id> \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Garden 2","description":"Updated"}'
+
+curl -X DELETE http://localhost:8080/api/v1/categories/<id> \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+Productos:
+```bash
+curl "http://localhost:8080/api/v1/products?limit=20&offset=0"
+
+curl -X POST http://localhost:8080/api/v1/products \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Laptop","description":"Ligera","price":125000,"stock":30}'
+
+curl -X PUT http://localhost:8080/api/v1/products/<id> \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Laptop","description":"Actualizada","price":129000,"stock":25}'
+
+curl -X DELETE http://localhost:8080/api/v1/products/<id> \
+  -H "Authorization: Bearer <TOKEN>"
+
+curl -X POST http://localhost:8080/api/v1/products/<product_id>/categories/<category_id> \
+  -H "Authorization: Bearer <TOKEN>"
+
+curl "http://localhost:8080/api/v1/search?type=product&q=laptop&limit=5"
+
+curl "http://localhost:8080/api/v1/products/<product_id>/history?start=2025-01-01T00:00:00Z&end=2025-12-31T23:59:59Z"
+```
+
+## Sistema de relaciones (DB)
+- `roles` 1:N `users` (cada usuario referencia un rol).
+- `users` 1:1 `verification_codes` (PK compartida, se borra en cascada).
+- `categories` N:M `products` via `product_category` (llaves foraneas con ON DELETE CASCADE).
+- `products` 1:N `product_history` (historial de precio/stock por producto, cascada en borrado).
+- Semillas: `roles` basicos, categorias y productos de ejemplo, usuarios de prueba (password `password123`).
+
+Diagrama ER en PlantUML: `docs/db-schema.puml` (servido en `GET /db-schema.puml`).
