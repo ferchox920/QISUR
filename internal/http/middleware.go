@@ -7,18 +7,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// TokenValidator validates auth tokens and returns an auth context.
+// TokenValidator valida tokens de auth y devuelve un contexto de auth.
 type TokenValidator interface {
 	Validate(token string) (AuthContext, error)
 }
 
-// AuthContext captures identity extracted from the token.
+// AuthContext captura identidad extraida del token.
 type AuthContext struct {
 	UserID string
 	Role   string
 }
 
-// AuthMiddleware authenticates requests using bearer tokens.
+// AuthMiddleware autentica peticiones usando bearer tokens.
 func AuthMiddleware(validator TokenValidator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authz := c.GetHeader("Authorization")
@@ -40,14 +40,14 @@ func AuthMiddleware(validator TokenValidator) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			return
 		}
-		// propagate identity for handlers.
+		// propagar identidad hacia los handlers.
 		c.Set("user_id", ctx.UserID)
 		c.Set("role", ctx.Role)
 		c.Next()
 	}
 }
 
-// RoleMiddleware authorizes requests by allowed roles.
+// RoleMiddleware autoriza peticiones segun roles permitidos.
 func RoleMiddleware(roles ...string) gin.HandlerFunc {
 	roleSet := make(map[string]struct{}, len(roles))
 	for _, r := range roles {

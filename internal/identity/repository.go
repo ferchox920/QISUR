@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// UserRepository holds persistence contracts for users.
+// UserRepository define los contratos de persistencia para usuarios.
 type UserRepository interface {
 	CreateUser(ctx context.Context, user User) (User, error)
 	GetByEmail(ctx context.Context, email string) (User, error)
@@ -19,7 +19,7 @@ type UserRepository interface {
 	DeleteVerificationCode(ctx context.Context, userID UserID) error
 }
 
-// RoleRepository holds contracts for role management.
+// RoleRepository define contratos para gestionar roles.
 type RoleRepository interface {
 	EnsureRole(ctx context.Context, role RoleName) error
 	AssignRole(ctx context.Context, userID UserID, role RoleName) error

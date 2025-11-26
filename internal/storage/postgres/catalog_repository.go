@@ -7,20 +7,27 @@ import (
 
 	"catalog-api/internal/catalog"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// CatalogRepository implements catalog repositories using Postgres.
-type CatalogRepository struct {
-	pool *pgxpool.Pool
+type pgxPool interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
 
-// NewCatalogRepository constructs a catalog repository backed by a pgx pool.
-func NewCatalogRepository(pool *pgxpool.Pool) *CatalogRepository {
+// CatalogRepository implementa repositorios de catalogo sobre Postgres.
+type CatalogRepository struct {
+	pool pgxPool
+}
+
+// NewCatalogRepository construye un repo de catalogo respaldado por un pool pgx.
+func NewCatalogRepository(pool pgxPool) *CatalogRepository {
 	return &CatalogRepository{pool: pool}
 }
 
-// ListCategories returns all categories ordered by name.
+// ListCategories devuelve todas las categorias ordenadas por nombre.
 func (r *CatalogRepository) ListCategories(ctx context.Context) ([]catalog.Category, error) {
 	if r.pool == nil {
 		return nil, catalog.ErrRepositoryNotConfigured
@@ -41,7 +48,7 @@ func (r *CatalogRepository) ListCategories(ctx context.Context) ([]catalog.Categ
 	return items, rows.Err()
 }
 
-// CreateCategory inserts a new category.
+// CreateCategory inserta una nueva categoria.
 func (r *CatalogRepository) CreateCategory(ctx context.Context, cat catalog.Category) (catalog.Category, error) {
 	if r.pool == nil {
 		return catalog.Category{}, catalog.ErrRepositoryNotConfigured
@@ -58,7 +65,7 @@ func (r *CatalogRepository) CreateCategory(ctx context.Context, cat catalog.Cate
 	return out, nil
 }
 
-// UpdateCategory updates name/description.
+// UpdateCategory actualiza nombre/descripcion.
 func (r *CatalogRepository) UpdateCategory(ctx context.Context, cat catalog.Category) (catalog.Category, error) {
 	if r.pool == nil {
 		return catalog.Category{}, catalog.ErrRepositoryNotConfigured
@@ -76,7 +83,7 @@ func (r *CatalogRepository) UpdateCategory(ctx context.Context, cat catalog.Cate
 	return out, nil
 }
 
-// DeleteCategory removes a category by ID.
+// DeleteCategory elimina una categoria por ID.
 func (r *CatalogRepository) DeleteCategory(ctx context.Context, id string) error {
 	if r.pool == nil {
 		return catalog.ErrRepositoryNotConfigured
@@ -85,7 +92,7 @@ func (r *CatalogRepository) DeleteCategory(ctx context.Context, id string) error
 	return err
 }
 
-// SearchCategories performs a simple text search with pagination.
+// SearchCategories ejecuta una busqueda de texto simple con paginacion.
 func (r *CatalogRepository) SearchCategories(ctx context.Context, filter catalog.SearchFilter) ([]catalog.Category, int64, error) {
 	if r.pool == nil {
 		return nil, 0, catalog.ErrRepositoryNotConfigured
@@ -126,7 +133,7 @@ func (r *CatalogRepository) SearchCategories(ctx context.Context, filter catalog
 	return items, total, err
 }
 
-// ListProducts fetches products with optional text query and sorting.
+// ListProducts obtiene productos con query de texto opcional y ordenamiento.
 func (r *CatalogRepository) ListProducts(ctx context.Context, filter catalog.ProductFilter) ([]catalog.Product, error) {
 	if r.pool == nil {
 		return nil, catalog.ErrRepositoryNotConfigured
@@ -161,7 +168,7 @@ func (r *CatalogRepository) ListProducts(ctx context.Context, filter catalog.Pro
 	return items, rows.Err()
 }
 
-// CountProducts returns the total number of products matching the filter.
+// CountProducts devuelve el total de productos que cumplen el filtro.
 func (r *CatalogRepository) CountProducts(ctx context.Context, filter catalog.ProductFilter) (int64, error) {
 	if r.pool == nil {
 		return 0, catalog.ErrRepositoryNotConfigured
@@ -177,7 +184,7 @@ func (r *CatalogRepository) CountProducts(ctx context.Context, filter catalog.Pr
 	return total, err
 }
 
-// GetProduct fetches a product by ID.
+// GetProduct obtiene un producto por ID.
 func (r *CatalogRepository) GetProduct(ctx context.Context, id string) (catalog.Product, error) {
 	if r.pool == nil {
 		return catalog.Product{}, catalog.ErrRepositoryNotConfigured
@@ -191,7 +198,7 @@ func (r *CatalogRepository) GetProduct(ctx context.Context, id string) (catalog.
 	return p, err
 }
 
-// CreateProduct inserts a new product.
+// CreateProduct inserta un nuevo producto.
 func (r *CatalogRepository) CreateProduct(ctx context.Context, p catalog.Product) (catalog.Product, error) {
 	if r.pool == nil {
 		return catalog.Product{}, catalog.ErrRepositoryNotConfigured
@@ -208,7 +215,7 @@ func (r *CatalogRepository) CreateProduct(ctx context.Context, p catalog.Product
 	return out, nil
 }
 
-// UpdateProduct updates fields of a product.
+// UpdateProduct actualiza campos de un producto.
 func (r *CatalogRepository) UpdateProduct(ctx context.Context, p catalog.Product) (catalog.Product, error) {
 	if r.pool == nil {
 		return catalog.Product{}, catalog.ErrRepositoryNotConfigured
@@ -230,7 +237,7 @@ func (r *CatalogRepository) UpdateProduct(ctx context.Context, p catalog.Product
 	if err := row.Scan(&out.ID, &out.Name, &out.Description, &out.Price, &out.Stock, &out.CreatedAt, &out.UpdatedAt); err != nil {
 		return catalog.Product{}, err
 	}
-	// Record history only when price or stock changed.
+	// Guarda historial solo cuando cambia precio o stock.
 	if original.Price != out.Price || original.Stock != out.Stock {
 		_, _ = r.pool.Exec(ctx, `
 			INSERT INTO product_history (product_id, price, stock)
@@ -240,7 +247,7 @@ func (r *CatalogRepository) UpdateProduct(ctx context.Context, p catalog.Product
 	return out, nil
 }
 
-// DeleteProduct removes a product by ID.
+// DeleteProduct elimina un producto por ID.
 func (r *CatalogRepository) DeleteProduct(ctx context.Context, id string) error {
 	if r.pool == nil {
 		return catalog.ErrRepositoryNotConfigured
@@ -249,7 +256,7 @@ func (r *CatalogRepository) DeleteProduct(ctx context.Context, id string) error 
 	return err
 }
 
-// ListProductHistory returns price/stock history for a product.
+// ListProductHistory devuelve historial de precio/stock de un producto.
 func (r *CatalogRepository) ListProductHistory(ctx context.Context, id string, filter catalog.ProductHistoryFilter) ([]catalog.ProductHistory, error) {
 	if r.pool == nil {
 		return nil, catalog.ErrRepositoryNotConfigured
@@ -289,7 +296,7 @@ func (r *CatalogRepository) ListProductHistory(ctx context.Context, id string, f
 	return items, rows.Err()
 }
 
-// AssignProductCategory relates a product to a category (many-to-many).
+// AssignProductCategory relaciona un producto con una categoria (muchos a muchos).
 func (r *CatalogRepository) AssignProductCategory(ctx context.Context, productID, categoryID string) error {
 	if r.pool == nil {
 		return catalog.ErrRepositoryNotConfigured

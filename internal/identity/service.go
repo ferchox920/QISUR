@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// Service exposes identity use cases.
+// Service expone casos de uso de identidad.
 type Service interface {
 	RegisterClient(ctx context.Context, input RegisterUserInput) (User, error)
 	RegisterStandardUser(ctx context.Context, input RegisterUserInput) (User, error)
@@ -17,59 +17,59 @@ type Service interface {
 	UpdateUserRole(ctx context.Context, input UpdateUserRoleInput) (User, error)
 }
 
-// RegisterUserInput encapsulates signup data.
+// RegisterUserInput encapsula datos de registro.
 type RegisterUserInput struct {
 	Email    string
 	Password string
 	FullName string
 }
 
-// VerifyUserInput contains verification challenge data.
+// VerifyUserInput contiene datos del desafio de verificacion.
 type VerifyUserInput struct {
 	UserID UserID
 	Code   string
 }
 
-// BlockUserInput captures admin-driven blocks.
+// BlockUserInput captura bloqueos realizados por admin.
 type BlockUserInput struct {
 	AdminID string
 	UserID  UserID
 	Reason  string
 }
 
-// LoginInput holds credentials for authentication.
+// LoginInput contiene credenciales para autenticacion.
 type LoginInput struct {
 	Email    string
 	Password string
 }
 
-// AuthToken captures authentication token response.
+// AuthToken contiene el token emitido tras autenticacion.
 type AuthToken struct {
 	Token string
 }
 
-// UpdateUserInput contains updatable fields and actor info.
+// UpdateUserInput contiene campos editables e info del actor.
 type UpdateUserInput struct {
 	UserID    UserID
 	UpdaterID string
 	FullName  string
 }
 
-// UpdateUserRoleInput restricts role change to admin operations.
+// UpdateUserRoleInput restringe el cambio de rol a operaciones admin.
 type UpdateUserRoleInput struct {
 	AdminID string
 	UserID  UserID
 	Role    RoleName
 }
 
-// AdminSeedInput is used to pre-create an admin from configuration.
+// AdminSeedInput se usa para pre-crear un admin desde la configuracion.
 type AdminSeedInput struct {
 	Email    string
 	Password string
 	FullName string
 }
 
-// ServiceDeps wires infrastructure to the domain service.
+// ServiceDeps cablea la infraestructura al servicio de dominio.
 type ServiceDeps struct {
 	UserRepo                 UserRepository
 	RoleRepo                 RoleRepository
@@ -83,7 +83,7 @@ type service struct {
 	deps ServiceDeps
 }
 
-// NewService constructs the identity service with injected dependencies.
+// NewService construye el servicio de identidad con dependencias inyectadas.
 func NewService(deps ServiceDeps) Service {
 	return &service{deps: deps}
 }
@@ -192,7 +192,7 @@ func (s *service) VerifyUser(ctx context.Context, input VerifyUserInput) error {
 	}
 	if time.Now().After(expiresAt) {
 		_ = s.deps.UserRepo.DeleteVerificationCode(ctx, input.UserID)
-		// resend a fresh code
+		// reenviar un codigo nuevo
 		if s.deps.VerificationCodeProvider != nil && s.deps.VerificationSender != nil {
 			newCode, genErr := s.deps.VerificationCodeProvider.Generate(ctx, string(input.UserID))
 			if genErr == nil {

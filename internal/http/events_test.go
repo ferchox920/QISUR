@@ -24,7 +24,7 @@ func (r *recordingEmitter) Emit(event string, data interface{}) {
 
 func TestSocketEmitter_NilSafe(t *testing.T) {
 	emitter := NewSocketEmitter(nil)
-	// should not panic
+	// no deberia hacer panic
 	emitter.Emit("test", map[string]string{"hello": "world"})
 }
 
@@ -46,7 +46,7 @@ func TestSocketEmitter_Broadcast(t *testing.T) {
 	go hub.Run(ctx)
 
 	emitter := NewSocketEmitter(hub)
-	// cannot assert actual network, but ensure no panic and payload is JSONable
+	// no se valida red real, solo que no haga panic y sea serializable a JSON
 	payload := map[string]string{"id": "123"}
 	emitter.Emit(ws.EventProductCreated, payload)
 }

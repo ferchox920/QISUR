@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-// RandomDigitsGenerator produces numeric codes of the given length.
+// RandomDigitsGenerator produce codigos numericos de la longitud indicada.
 type RandomDigitsGenerator struct {
 	Length int
 }

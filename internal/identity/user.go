@@ -2,10 +2,10 @@ package identity
 
 import "time"
 
-// UserID represents a user identifier; expected to be a UUID string.
+// UserID representa un identificador de usuario; se espera UUID.
 type UserID = string
 
-// UserStatus captures lifecycle states for accounts.
+// UserStatus describe estados de ciclo de vida para cuentas.
 type UserStatus string
 
 const (
@@ -14,7 +14,7 @@ const (
 	UserStatusBlocked             UserStatus = "blocked"
 )
 
-// User aggregates identity data without leaking transport or storage concerns.
+// User agrupa datos de identidad sin mezclar detalles de transporte o storage.
 type User struct {
 	ID           UserID
 	Email        string

@@ -6,36 +6,58 @@ import (
 	"errors"
 	"fmt"
 
-	"gopkg.in/gomail.v2"
+	mail "github.com/wneessen/go-mail"
 )
 
-// GomailVerificationSender implements identity.VerificationSender using SMTP via gomail.
-type GomailVerificationSender struct {
-	dialer *gomail.Dialer
+// MailVerificationSender implements identity.VerificationSender using SMTP via go-mail.
+type MailVerificationSender struct {
+	client *mail.Client
 	from   string
 }
 
-// NewGomailVerificationSender builds a verification sender; returns nil if host is empty.
-func NewGomailVerificationSender(host string, port int, username, password, from string, skipTLSVerify bool) *GomailVerificationSender {
+// NewMailVerificationSender builds a verification sender; returns nil if host is empty.
+func NewMailVerificationSender(host string, port int, username, password, from string, skipTLSVerify bool) *MailVerificationSender {
 	if host == "" || from == "" {
 		return nil
 	}
-	d := gomail.NewDialer(host, port, username, password)
-	if skipTLSVerify {
-		d.TLSConfig = &tls.Config{InsecureSkipVerify: true} // only for dev/test
+
+	opts := []mail.Option{
+		mail.WithPort(port),
+		mail.WithTLSPolicy(mail.TLSOpportunistic),
 	}
-	return &GomailVerificationSender{dialer: d, from: from}
+	if username != "" {
+		opts = append(opts, mail.WithUsername(username))
+	}
+	if password != "" {
+		opts = append(opts, mail.WithPassword(password))
+	}
+	if skipTLSVerify {
+		opts = append(opts, mail.WithTLSConfig(&tls.Config{InsecureSkipVerify: true}))
+	}
+
+	client, err := mail.NewClient(host, opts...)
+	if err != nil {
+		return nil
+	}
+
+	return &MailVerificationSender{client: client, from: from}
 }
 
 // SendVerification dispatches a simple text email with the verification code.
-func (s *GomailVerificationSender) SendVerification(ctx context.Context, email, code string) error {
-	if s == nil || s.dialer == nil {
-		return errors.New("gomail sender not configured")
+func (s *MailVerificationSender) SendVerification(ctx context.Context, email, code string) error {
+	if s == nil || s.client == nil {
+		return errors.New("mail sender not configured")
 	}
-	msg := gomail.NewMessage()
-	msg.SetHeader("From", s.from)
-	msg.SetHeader("To", email)
-	msg.SetHeader("Subject", "Verifica tu cuenta")
-	msg.SetBody("text/plain", fmt.Sprintf("Tu código de verificación es: %s", code))
-	return s.dialer.DialAndSend(msg)
+
+	msg := mail.NewMsg()
+	if err := msg.From(s.from); err != nil {
+		return err
+	}
+	if err := msg.To(email); err != nil {
+		return err
+	}
+	msg.Subject("Verifica tu cuenta")
+	msg.SetBodyString(mail.TypeTextPlain, fmt.Sprintf("Tu codigo de verificacion es: %s", code))
+
+	return s.client.DialAndSendWithContext(ctx, msg)
 }

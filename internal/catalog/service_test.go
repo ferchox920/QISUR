@@ -32,7 +32,7 @@ func (s *stubCategoryRepo) ListCategories(ctx context.Context) ([]Category, erro
 }
 
 func (s *stubCategoryRepo) SearchCategories(ctx context.Context, filter SearchFilter) ([]Category, int64, error) {
-	// simplistic search ignoring query/sort for tests
+	// busqueda simplificada que ignora query/sort en los tests
 	items, err := s.ListCategories(ctx)
 	return items, int64(len(items)), err
 }

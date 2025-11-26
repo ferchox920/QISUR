@@ -1,3 +1,3 @@
 package catalog
 
-// TODO: domain events for catalog changes.
+// TODO: eventos de dominio para cambios de catalogo.

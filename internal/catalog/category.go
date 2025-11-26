@@ -2,7 +2,7 @@ package catalog
 
 import "time"
 
-// Category represents a product grouping.
+// Category representa un agrupamiento de productos.
 type Category struct {
 	ID          string
 	Name        string

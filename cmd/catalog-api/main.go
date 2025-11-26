@@ -11,6 +11,7 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
 
 	docs "catalog-api/docs/swagger"
@@ -28,7 +29,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// bootstrap sets up infrastructure; domain wiring remains minimal and TODO-driven.
+// bootstrap levanta la infraestructura; el wiring de dominio sigue siendo minimo y con TODOs.
 func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *httpapi.RouterFactory, *ws.Hub, error) {
 	cfg := config.Load()
 	logr := logger.New()
@@ -54,10 +55,10 @@ func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *h
 	}
 
 	var verificationSender identity.VerificationSender
-	if smtpSender := mailer.NewGomailVerificationSender(cfg.SMTP.Host, cfg.SMTP.Port, cfg.SMTP.Username, cfg.SMTP.Password, cfg.SMTP.From, cfg.SMTP.SkipTLS); smtpSender != nil {
+	if smtpSender := mailer.NewMailVerificationSender(cfg.SMTP.Host, cfg.SMTP.Port, cfg.SMTP.Username, cfg.SMTP.Password, cfg.SMTP.From, cfg.SMTP.SkipTLS); smtpSender != nil {
 		verificationSender = smtpSender
 	} else {
-		logr.Printf("warning: SMTP not configured, falling back to noop verification sender")
+		logr.Warn("SMTP not configured; falling back to noop verification sender")
 		verificationSender = &noopVerificationSender{logr: logr}
 	}
 
@@ -77,7 +78,7 @@ func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *h
 		Password: cfg.AdminSeed.Password,
 		FullName: cfg.AdminSeed.FullName,
 	}); err != nil {
-		logr.Printf("admin seed skipped: %v", err)
+		logr.Warn("admin seed skipped", "error", err)
 	}
 
 	catService := catalog.NewService(catalog.ServiceDeps{
@@ -113,25 +114,25 @@ func main() {
 	router := routerFactory.Build()
 
 	addr := ":" + config.Load().HTTPPort
-	// TODO: plug in graceful shutdown with context cancellation.
+	// TODO: integrar apagado elegante con cancelacion de contexto.
 	if err := router.Run(addr); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("server stopped with error: %v", err)
 	}
 }
 
-// noopVerificationSender is a temporary placeholder until email provider is integrated.
+// noopVerificationSender es un placeholder temporal hasta integrar proveedor de email.
 type noopVerificationSender struct {
-	logr *log.Logger
+	logr *slog.Logger
 }
 
 func (s *noopVerificationSender) SendVerification(ctx context.Context, email, code string) error {
 	if s.logr != nil {
-		s.logr.Printf("verification email to %s with code %s (noop)", email, code)
+		s.logr.Info("verification email noop sender", "email", email, "code", code)
 	}
 	return nil
 }
 
-// jwtValidatorAdapter bridges JWTProvider to HTTP middleware TokenValidator.
+// jwtValidatorAdapter conecta JWTProvider con el middleware TokenValidator.
 type jwtValidatorAdapter struct {
 	provider crypto.JWTProvider
 }

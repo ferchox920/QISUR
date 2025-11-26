@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// CatalogHandler orchestrates catalog endpoints.
+// CatalogHandler orquesta los endpoints de catalogo.
 type CatalogHandler struct {
 	svc     catalog.Service
 	emitter EventEmitter
@@ -309,7 +309,7 @@ func (h *CatalogHandler) Search(c *gin.Context) {
 		})
 		return
 	}
-	// default to products
+	// por defecto, productos
 	c.JSON(http.StatusOK, gin.H{
 		"total":    result.Total,
 		"products": toProductResponses(result.Products),

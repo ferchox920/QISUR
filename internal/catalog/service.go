@@ -2,7 +2,7 @@ package catalog
 
 import "context"
 
-// Service exposes catalog use cases.
+// Service expone casos de uso del catalogo.
 type Service interface {
 	ListCategories(ctx context.Context) ([]Category, error)
 	CreateCategory(ctx context.Context, input CreateCategoryInput) (Category, error)
@@ -18,13 +18,13 @@ type Service interface {
 	AssignProductCategory(ctx context.Context, productID, categoryID string) error
 }
 
-// CreateCategoryInput captures creation fields.
+// CreateCategoryInput encapsula campos de creacion.
 type CreateCategoryInput struct {
 	Name        string
 	Description string
 }
 
-// CreateProductInput captures product creation fields.
+// CreateProductInput encapsula campos para crear producto.
 type CreateProductInput struct {
 	Name        string
 	Description string
@@ -32,14 +32,14 @@ type CreateProductInput struct {
 	Stock       int64
 }
 
-// UpdateCategoryInput captures update fields.
+// UpdateCategoryInput encapsula campos de actualizacion de categoria.
 type UpdateCategoryInput struct {
 	ID          string
 	Name        string
 	Description string
 }
 
-// UpdateProductInput captures product update fields.
+// UpdateProductInput encapsula campos de actualizacion de producto.
 type UpdateProductInput struct {
 	ID          string
 	Name        string
@@ -48,14 +48,14 @@ type UpdateProductInput struct {
 	Stock       int64
 }
 
-// SearchResult wraps search responses.
+// SearchResult envuelve las respuestas de busqueda.
 type SearchResult struct {
 	Products   []Product
 	Categories []Category
 	Total      int64
 }
 
-// ServiceDeps wires dependencies into the catalog service.
+// ServiceDeps cablea las dependencias en el servicio de catalogo.
 type ServiceDeps struct {
 	CategoryRepo CategoryRepository
 	ProductRepo  ProductRepository
@@ -65,7 +65,7 @@ type service struct {
 	deps ServiceDeps
 }
 
-// NewService builds a catalog service.
+// NewService construye un servicio de catalogo.
 func NewService(deps ServiceDeps) Service {
 	return &service{deps: deps}
 }
@@ -121,7 +121,7 @@ func (s *service) ListProducts(ctx context.Context, filter ProductFilter) ([]Pro
 	if s.deps.ProductRepo == nil {
 		return nil, 0, ErrRepositoryNotConfigured
 	}
-	// basic pagination defaults
+	// defaults basicos de paginacion
 	if filter.Limit <= 0 {
 		filter.Limit = 20
 	}
@@ -219,7 +219,7 @@ func (s *service) AssignProductCategory(ctx context.Context, productID, category
 	return s.deps.ProductRepo.AssignProductCategory(ctx, productID, categoryID)
 }
 
-// Search handles combined search for products or categories.
+// Search maneja la busqueda combinada de productos o categorias.
 func (s *service) Search(ctx context.Context, filter SearchFilter) (SearchResult, error) {
 	if filter.Limit <= 0 {
 		filter.Limit = 20

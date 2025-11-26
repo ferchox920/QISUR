@@ -7,14 +7,14 @@ import (
 	"time"
 )
 
-// AdminSeed holds bootstrap credentials for the initial admin user.
+// AdminSeed contiene las credenciales de arranque para el usuario admin inicial.
 type AdminSeed struct {
 	Email    string
 	Password string
 	FullName string
 }
 
-// Config centralizes runtime configuration.
+// Config centraliza la configuracion de runtime.
 type Config struct {
 	HTTPPort    string
 	DatabaseURL string
@@ -25,7 +25,7 @@ type Config struct {
 	JWTTTL      time.Duration
 }
 
-// SMTPConfig holds SMTP credentials for email delivery.
+// SMTPConfig contiene las credenciales SMTP para el envio de correo.
 type SMTPConfig struct {
 	Host     string
 	Port     int
@@ -35,7 +35,7 @@ type SMTPConfig struct {
 	SkipTLS  bool
 }
 
-// Load reads configuration from environment variables with sensible defaults.
+// Load lee configuracion desde variables de entorno con valores por defecto.
 func Load() Config {
 	return Config{
 		HTTPPort:    envOrDefault("HTTP_PORT", "8080"),

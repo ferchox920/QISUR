@@ -1,6 +1,6 @@
 package http
 
-// Identity DTOs keep transport-only fields outside the domain layer.
+// Los DTOs de identidad mantienen campos de transporte fuera de la capa de dominio.
 
 type RegisterClientRequest struct {
 	Email    string `json:"email" binding:"required,email"`
@@ -49,7 +49,7 @@ type IdentityResponse struct {
 	IsVerified bool   `json:"is_verified"`
 }
 
-// Catalog DTOs
+// DTOs de catalogo
 
 type CategoryResponse struct {
 	ID          string `json:"id"`
@@ -67,7 +67,7 @@ type UpdateCategoryRequest struct {
 	Description string `json:"description" binding:"omitempty"`
 }
 
-// Product DTOs
+// DTOs de producto
 
 type ProductResponse struct {
 	ID          string `json:"id"`
@@ -99,7 +99,7 @@ type ProductHistoryResponse struct {
 	ChangedAt string `json:"changed_at"`
 }
 
-// Event DTOs
+// DTOs de eventos
 type EventInfo struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`

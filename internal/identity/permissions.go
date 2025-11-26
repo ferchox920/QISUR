@@ -1,6 +1,6 @@
 package identity
 
-// Permission represents coarse-grained capabilities.
+// Permission representa capacidades de alto nivel.
 type Permission string
 
 const (

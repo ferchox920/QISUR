@@ -1,3 +1,3 @@
 package validator
 
-// TODO: provide reusable validation utilities (wrappers around go-playground/validator).
+// TODO: proveer utilidades de validacion reutilizables (wrappers sobre go-playground/validator).

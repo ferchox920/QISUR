@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// minimal SMTP test server to assert gomail sender sends mail.
+// minimal SMTP test server to assert mail sender sends mail.
 func startTestSMTPServer(t *testing.T) (addr string, stop func(), received chan string) {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -73,14 +73,14 @@ func startTestSMTPServer(t *testing.T) (addr string, stop func(), received chan 
 	return ln.Addr().String(), stop, received
 }
 
-func TestGomailVerificationSender_SendsMail(t *testing.T) {
+func TestMailVerificationSender_SendsMail(t *testing.T) {
 	addr, stop, received := startTestSMTPServer(t)
 	defer stop()
 
 	host, portStr, _ := net.SplitHostPort(addr)
 	port, _ := strconv.Atoi(portStr)
 
-	sender := NewGomailVerificationSender(host, port, "", "", "from@example.com", true)
+	sender := NewMailVerificationSender(host, port, "", "", "from@example.com", true)
 	if sender == nil {
 		t.Fatalf("expected sender to be created")
 	}

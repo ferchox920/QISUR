@@ -10,7 +10,7 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-// RouterFactory bundles handlers required to build the HTTP router.
+// RouterFactory agrupa los handlers necesarios para construir el router HTTP.
 type RouterFactory struct {
 	IdentityHandler *IdentityHandler
 	WSHub           *ws.Hub
@@ -18,7 +18,7 @@ type RouterFactory struct {
 	CatalogHandler  *CatalogHandler
 }
 
-// Build wires all HTTP routes for REST and WebSocket.
+// Build cablea todas las rutas HTTP para REST y WebSocket.
 func (f *RouterFactory) Build() *gin.Engine {
 	router := gin.Default()
 
@@ -88,12 +88,12 @@ func (f *RouterFactory) Build() *gin.Engine {
 
 	api.GET("/events", EventsCatalog)
 
-	// Serve swagger spec from local file to avoid stale builds.
+	// Sirve el spec de swagger desde archivo local para evitar builds desactualizados.
 	router.GET("/swagger/doc.json", func(c *gin.Context) {
 		c.File("docs/swagger/swagger.json")
 	})
 	swaggerURL := ginSwagger.URL("/swagger/doc.json")
-	// Expose ER diagram for reference outside swagger wildcard.
+	// Expone el diagrama ER para consulta fuera del wildcard de swagger.
 	router.StaticFile("/db-schema.puml", "docs/db-schema.puml")
 	router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, swaggerURL, ginSwagger.InstanceName("swagger")))
 	router.StaticFile("/events-ui", "web/events.html")

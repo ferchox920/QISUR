@@ -9,13 +9,13 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// EventMessage is the JSON envelope sent over the socket.
+// EventMessage es el sobre JSON enviado por el socket.
 type EventMessage struct {
 	Event string      `json:"event"`
 	Data  interface{} `json:"data"`
 }
 
-// Hub keeps track of all connected clients and broadcasts events to them.
+// Hub registra los clientes conectados y les difunde eventos.
 type Hub struct {
 	clients    map[*Client]bool
 	register   chan *Client
@@ -25,7 +25,7 @@ type Hub struct {
 	upgrader websocket.Upgrader
 }
 
-// NewHub builds a hub ready to accept clients.
+// NewHub construye un hub listo para aceptar clientes.
 func NewHub() *Hub {
 	return &Hub{
 		clients:    make(map[*Client]bool),
@@ -35,13 +35,13 @@ func NewHub() *Hub {
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
-			// Allow all origins for now; frontends should still use auth if needed.
+			// Permitimos todos los origenes por ahora; los frontends igual deben usar auth si hace falta.
 			CheckOrigin: func(r *http.Request) bool { return true },
 		},
 	}
 }
 
-// Run processes client lifecycle and fan-out broadcasts until the context is cancelled.
+// Run procesa el ciclo de vida de clientes y difunde eventos hasta que el contexto se cancele.
 func (h *Hub) Run(ctx context.Context) {
 	for {
 		select {
@@ -59,7 +59,7 @@ func (h *Hub) Run(ctx context.Context) {
 				select {
 				case client.send <- message:
 				default:
-					// client is not reading; drop it to avoid blocking the hub
+					// el cliente no esta leyendo; lo descartamos para no bloquear el hub
 					delete(h.clients, client)
 					close(client.send)
 					_ = client.conn.Close()
@@ -72,7 +72,7 @@ func (h *Hub) Run(ctx context.Context) {
 	}
 }
 
-// ServeHTTP upgrades the connection and registers a new WebSocket client.
+// ServeHTTP actualiza la conexion y registra un cliente WebSocket.
 func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -84,7 +84,7 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	select {
 	case h.register <- client:
 	default:
-		// Hub is not running; reject connection.
+		// El hub no esta corriendo; se rechaza la conexion.
 		_ = conn.Close()
 		return
 	}
@@ -92,12 +92,12 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	go client.writePump()
 	go client.readPump()
 
-	// Send a lightweight hello so consumers can confirm the channel is alive.
+	// Se envia un saludo ligero para confirmar que el canal esta vivo.
 	_ = h.Publish(EventConnected, map[string]string{"id": conn.RemoteAddr().String()})
 }
 
-// Publish pushes an event to every connected client. It is best-effort and will
-// drop the payload if serialization fails or the hub is back-pressured.
+// Publish envia un evento a cada cliente conectado. Es best-effort y descarta
+// el payload si falla la serializacion o el hub esta congestionado.
 func (h *Hub) Publish(event string, data interface{}) error {
 	payload, err := json.Marshal(EventMessage{
 		Event: event,
@@ -110,7 +110,7 @@ func (h *Hub) Publish(event string, data interface{}) error {
 	select {
 	case h.broadcast <- payload:
 	default:
-		// avoid blocking the API handler; client buffers are congested
+		// evitar bloquear el handler de la API; los buffers de clientes estan llenos
 	}
 	return nil
 }

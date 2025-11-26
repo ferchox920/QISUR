@@ -1,6 +1,6 @@
 package identity
 
-// RoleName enumerates supported roles in the system.
+// RoleName enumera roles soportados en el sistema.
 type RoleName string
 
 const (

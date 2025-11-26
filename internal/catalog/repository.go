@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// CategoryRepository holds persistence contracts for categories.
+// CategoryRepository define contratos de persistencia para categorias.
 type CategoryRepository interface {
 	ListCategories(ctx context.Context) ([]Category, error)
 	CreateCategory(ctx context.Context, cat Category) (Category, error)
@@ -14,7 +14,7 @@ type CategoryRepository interface {
 	SearchCategories(ctx context.Context, filter SearchFilter) ([]Category, int64, error)
 }
 
-// ProductRepository holds persistence contracts for products.
+// ProductRepository define contratos de persistencia para productos.
 type ProductRepository interface {
 	ListProducts(ctx context.Context, filter ProductFilter) ([]Product, error)
 	CountProducts(ctx context.Context, filter ProductFilter) (int64, error)
@@ -26,7 +26,7 @@ type ProductRepository interface {
 	AssignProductCategory(ctx context.Context, productID, categoryID string) error
 }
 
-// ProductFilter supports pagination and future filtering.
+// ProductFilter soporta paginacion y futuros filtros.
 type ProductFilter struct {
 	Query   string
 	Limit   int
@@ -37,7 +37,7 @@ type ProductFilter struct {
 
 // SearchFilter supports combined search for products or categories.
 type SearchFilter struct {
-	Kind    string // "product" or "category"
+	Kind    string // "product" o "category"
 	Query   string
 	Limit   int
 	Offset  int
@@ -45,7 +45,7 @@ type SearchFilter struct {
 	SortDir string
 }
 
-// ProductHistoryFilter filters history queries.
+// ProductHistoryFilter filtra consultas de historial.
 type ProductHistoryFilter struct {
 	Start time.Time
 	End   time.Time

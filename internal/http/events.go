@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// EventEmitter broadcasts events to connected clients.
+// EventEmitter difunde eventos a clientes conectados.
 type EventEmitter interface {
 	Emit(event string, data interface{})
 }
@@ -15,7 +15,7 @@ type socketEmitter struct {
 	hub *ws.Hub
 }
 
-// NewSocketEmitter builds an event emitter backed by a WebSocket hub.
+// NewSocketEmitter construye un emisor de eventos apoyado en el hub WebSocket.
 func NewSocketEmitter(hub *ws.Hub) EventEmitter {
 	return &socketEmitter{hub: hub}
 }

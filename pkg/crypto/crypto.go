@@ -11,7 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// BcryptHasher implements identity.PasswordHasher with bcrypt.
+// BcryptHasher implementa identity.PasswordHasher con bcrypt.
 type BcryptHasher struct {
 	Cost int
 }
@@ -29,14 +29,14 @@ func (h BcryptHasher) Compare(hash, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 }
 
-// JWTProvider issues JWT tokens; wire secret/issuer/ttl via config.
+// JWTProvider emite tokens JWT; el secreto/issuer/ttl viene por config.
 type JWTProvider struct {
 	Secret string
 	Issuer string
 	TTL    time.Duration
 }
 
-// AuthClaims extends standard claims with role metadata.
+// AuthClaims extiende los claims estandar con metadata de rol.
 type AuthClaims struct {
 	Role string `json:"role"`
 	jwt.RegisteredClaims
@@ -59,7 +59,7 @@ func (p JWTProvider) Generate(ctx context.Context, user identity.User) (string, 
 	return token.SignedString([]byte(p.Secret))
 }
 
-// Validate parses and validates a JWT token and returns claims.
+// Validate parsea y valida un token JWT y retorna sus claims.
 func (p JWTProvider) Validate(token string) (AuthClaims, error) {
 	var claims AuthClaims
 	if p.Secret == "" {

@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// IdentityHandler orchestrates identity-related HTTP endpoints.
+// IdentityHandler orquesta los endpoints HTTP de identidad.
 type IdentityHandler struct {
 	svc identity.Service
 }
@@ -83,7 +83,7 @@ func (h *IdentityHandler) BlockUser(c *gin.Context) {
 	}
 
 	userID := c.Param("id")
-	adminID := c.GetString("user_id") // TODO: replace with real auth context extraction.
+	adminID := c.GetString("user_id") // TODO: reemplazar con extraccion real del contexto de auth.
 
 	if err := h.svc.BlockUser(c.Request.Context(), identity.BlockUserInput{
 		AdminID: adminID,

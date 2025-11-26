@@ -12,7 +12,7 @@ const (
 	pingPeriod = (pongWait * 9) / 10
 )
 
-// Client wraps a WebSocket connection registered in the hub.
+// Client envuelve una conexion WebSocket registrada en el hub.
 type Client struct {
 	hub  *Hub
 	conn *websocket.Conn
@@ -27,7 +27,7 @@ func newClient(hub *Hub, conn *websocket.Conn) *Client {
 	}
 }
 
-// readPump drains incoming messages (we only care about lifecycle) and exits on error.
+// readPump consume mensajes entrantes (solo se usa para ciclo de vida) y sale ante error.
 func (c *Client) readPump() {
 	defer func() {
 		select {
@@ -49,7 +49,7 @@ func (c *Client) readPump() {
 	}
 }
 
-// writePump pushes outbound events and keeps the connection alive with pings.
+// writePump envia eventos de salida y mantiene viva la conexion con pings.
 func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {

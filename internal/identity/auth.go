@@ -2,23 +2,23 @@ package identity
 
 import "context"
 
-// PasswordHasher abstracts hashing strategy (e.g., bcrypt, argon2).
+// PasswordHasher abstrae la estrategia de hashing (bcrypt, argon2, etc.).
 type PasswordHasher interface {
 	Hash(password string) (string, error)
 	Compare(hash, password string) error
 }
 
-// TokenProvider issues auth tokens for signed-in users.
+// TokenProvider emite tokens de auth para usuarios autenticados.
 type TokenProvider interface {
 	Generate(ctx context.Context, user User) (string, error)
 }
 
-// VerificationCodeGenerator issues OTP codes for email verification.
+// VerificationCodeGenerator genera codigos OTP para verificacion por email.
 type VerificationCodeGenerator interface {
 	Generate(ctx context.Context, userID string) (string, error)
 }
 
-// VerificationSender sends verification challenges (email, SMS, etc.).
+// VerificationSender envia desafios de verificacion (email, SMS, etc.).
 type VerificationSender interface {
 	SendVerification(ctx context.Context, email, code string) error
 }

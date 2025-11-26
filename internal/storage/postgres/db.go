@@ -6,7 +6,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Connect opens a pgx pool using a connection string.
+// Connect abre un pool pgx usando el DSN indicado.
 func Connect(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	return pgxpool.New(ctx, dsn)
 }
