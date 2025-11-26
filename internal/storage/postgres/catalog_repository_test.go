@@ -57,7 +57,7 @@ func TestCatalogRepository_UpdateProductRecordsHistoryOnChange(t *testing.T) {
 		WithArgs("p1").
 		WillReturnRows(pgxmock.NewRows([]string{"price", "stock"}).AddRow(int64(10), int64(5)))
 
-	mock.ExpectQuery(`UPDATE products\s+SET name = \$1, description = \$2, price = \$3, stock = \$4, updated_at = NOW\(\)\s+WHERE id = \$5\s+RETURNING id, name, description, price::bigint, stock, created_at, updated_at`).
+	mock.ExpectQuery(`UPDATE products\s+SET name = \$1, description = \$2, price = \$3, stock = \$4, updated_at = NOW\(\)\s+WHERE id = \$5\s+RETURNING id, name, description, price, stock, created_at, updated_at`).
 		WithArgs("Pen", "Red", int64(12), int64(3), "p1").
 		WillReturnRows(pgxmock.NewRows([]string{"id", "name", "description", "price", "stock", "created_at", "updated_at"}).
 			AddRow("p1", "Pen", "Red", int64(12), int64(3), time.Now(), time.Now()))
@@ -99,7 +99,7 @@ func TestCatalogRepository_UpdateProductRollsBackOnHistoryFailure(t *testing.T) 
 		WithArgs("p1").
 		WillReturnRows(pgxmock.NewRows([]string{"price", "stock"}).AddRow(int64(10), int64(5)))
 
-	mock.ExpectQuery(`UPDATE products\s+SET name = \$1, description = \$2, price = \$3, stock = \$4, updated_at = NOW\(\)\s+WHERE id = \$5\s+RETURNING id, name, description, price::bigint, stock, created_at, updated_at`).
+	mock.ExpectQuery(`UPDATE products\s+SET name = \$1, description = \$2, price = \$3, stock = \$4, updated_at = NOW\(\)\s+WHERE id = \$5\s+RETURNING id, name, description, price, stock, created_at, updated_at`).
 		WithArgs("Pen", "Red", int64(12), int64(3), "p1").
 		WillReturnRows(pgxmock.NewRows([]string{"id", "name", "description", "price", "stock", "created_at", "updated_at"}).
 			AddRow("p1", "Pen", "Red", int64(12), int64(3), time.Now(), time.Now()))

@@ -44,6 +44,7 @@ Este proyecto implementa un sistema robusto para manejar productos, categorías 
 - **WebSockets:** [Gorilla WebSocket](https://github.com/gorilla/websocket)
 - **Documentación:** [Swagger (Swaggo)](https://github.com/swaggo/swag)
 - **Autenticación:** [Golang-JWT](https://github.com/golang-jwt/jwt)
+- **Fechas:** Los parámetros `start`/`end` del historial usan formato RFC3339 (ej. `2023-01-01T00:00:00Z`).
 
 ---
 
@@ -158,4 +159,3 @@ go test ./... -v
 ```
 
 ---
-

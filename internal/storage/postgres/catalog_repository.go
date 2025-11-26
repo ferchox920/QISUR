@@ -148,7 +148,7 @@ func (r *CatalogRepository) ListProducts(ctx context.Context, filter catalog.Pro
 	order := buildProductOrderClause(filter.SortBy, filter.SortDir)
 	args = append(args, filter.Limit, filter.Offset)
 	rows, err := r.pool.Query(ctx, fmt.Sprintf(`
-		SELECT id, name, description, price::bigint, stock, created_at, updated_at
+		SELECT id, name, description, price, stock, created_at, updated_at
 		FROM products
 		WHERE %s
 		%s
@@ -192,7 +192,7 @@ func (r *CatalogRepository) GetProduct(ctx context.Context, id string) (catalog.
 	}
 	var p catalog.Product
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, name, description, price::bigint, stock, created_at, updated_at
+		SELECT id, name, description, price, stock, created_at, updated_at
 		FROM products
 		WHERE id = $1
 	`, id).Scan(&p.ID, &p.Name, &p.Description, &p.Price, &p.Stock, &p.CreatedAt, &p.UpdatedAt)
@@ -207,7 +207,7 @@ func (r *CatalogRepository) CreateProduct(ctx context.Context, p catalog.Product
 	row := r.pool.QueryRow(ctx, `
 		INSERT INTO products (name, description, price, stock)
 		VALUES ($1, $2, $3, $4)
-		RETURNING id, name, description, price::bigint, stock, created_at, updated_at
+		RETURNING id, name, description, price, stock, created_at, updated_at
 	`, p.Name, p.Description, p.Price, p.Stock)
 	var out catalog.Product
 	if err := row.Scan(&out.ID, &out.Name, &out.Description, &out.Price, &out.Stock, &out.CreatedAt, &out.UpdatedAt); err != nil {
@@ -238,7 +238,7 @@ func (r *CatalogRepository) UpdateProduct(ctx context.Context, p catalog.Product
 		UPDATE products
 		SET name = $1, description = $2, price = $3, stock = $4, updated_at = NOW()
 		WHERE id = $5
-		RETURNING id, name, description, price::bigint, stock, created_at, updated_at
+		RETURNING id, name, description, price, stock, created_at, updated_at
 	`, p.Name, p.Description, p.Price, p.Stock, p.ID)
 	var out catalog.Product
 	if err := row.Scan(&out.ID, &out.Name, &out.Description, &out.Price, &out.Stock, &out.CreatedAt, &out.UpdatedAt); err != nil {
