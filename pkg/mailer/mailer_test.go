@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// minimal SMTP test server to assert mail sender sends mail.
+// servidor SMTP minimo para asegurar que el sender envia mail.
 func startTestSMTPServer(t *testing.T) (addr string, stop func(), received chan string) {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")

@@ -35,11 +35,11 @@ Variables clave (ver `.env.example`):
 - `HTTP_PORT`: Puerto HTTP (8080 por defecto).
 - `LOG_LEVEL`: Nivel de log (`debug|info|warn|error`, por defecto `info`).
 - `LOG_FORMAT`: Formato de log (`json` por defecto, `text` para desarrollo).
-- SMTP (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`) para envio de verificacion via go-mail (TLS oportunista, con `SMTP_TLS_SKIP_VERIFY=true` solo para desarrollo).
+- SMTP (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`) para envio de verificacion via gomail (TLS oportunista, con `SMTP_TLS_SKIP_VERIFY=true` solo para desarrollo).
 - JWT (`JWT_SECRET`, `JWT_ISSUER`, `JWT_TTL`).
 
 ## Verificacion por email
-- El envio de codigos usa `github.com/wneessen/go-mail` (SMTP). Si faltan `SMTP_HOST` o `SMTP_FROM`, el sender queda deshabilitado y se usa un noop.
+- El envio de codigos usa `gopkg.in/gomail.v2` (SMTP). Si faltan `SMTP_HOST` o `SMTP_FROM`, el sender queda deshabilitado y se usa un noop.
 - Para desarrollo sin TLS estricto, habilita `SMTP_TLS_SKIP_VERIFY=true`; en produccion dejar en `false` y usar credenciales reales.
 - El contenido del correo es texto plano con el codigo de verificacion.
 
@@ -139,3 +139,5 @@ curl "http://localhost:8080/api/v1/products/<product_id>/history?start=2025-01-0
 - Semillas: `roles` basicos, categorias y productos de ejemplo, usuarios de prueba (password `password123`).
 
 Diagrama ER en PlantUML: `docs/db-schema.puml` (servido en `GET /db-schema.puml`).
+
+
