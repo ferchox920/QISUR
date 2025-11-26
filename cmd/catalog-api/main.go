@@ -11,7 +11,6 @@ package main
 import (
 	"context"
 	"log"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -33,8 +32,15 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// bootstrap levanta la infraestructura; el wiring de dominio sigue siendo minimo y con TODOs.
-func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *httpapi.RouterFactory, *ws.Hub, error) {
+// App encapsula las dependencias principales de la aplicacion.
+type App struct {
+	DB       *pgxpool.Pool
+	Router   *http.Server
+	WSHub    *ws.Hub
+	HTTPPort string
+}
+
+func bootstrap(ctx context.Context) (*App, error) {
 	cfg := config.Load()
 	logr := logger.New()
 	docs.SwaggerInfo.BasePath = "/api/v1"
@@ -42,7 +48,7 @@ func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *h
 
 	dbPool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, err
 	}
 
 	wsHub := ws.NewHub(cfg.WSAllowedOrigins)
@@ -63,7 +69,7 @@ func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *h
 		verificationSender = smtpSender
 	} else {
 		logr.Warn("SMTP not configured; falling back to noop verification sender")
-		verificationSender = &noopVerificationSender{logr: logr}
+		verificationSender = &mailer.NoopVerificationSender{Logr: logr}
 	}
 
 	codeGenerator := crypto.RandomDigitsGenerator{Length: 6}
@@ -97,34 +103,39 @@ func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *h
 		CatalogHandler:  catalogHandler,
 		IdentityHandler: identityHandler,
 		WSHub:           wsHub,
-		TokenValidator:  jwtValidatorAdapter{provider: jwtProvider},
+		TokenValidator:  httpapi.JWTValidatorAdapter{Provider: jwtProvider},
 	}
-
-	return dbPool, identityHandler, routerFactory, wsHub, nil
-}
-
-func main() {
-	_ = godotenv.Load()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel() // fallback; main handles shutdown below.
-
-	dbPool, _, routerFactory, _, err := bootstrap(ctx)
-	if err != nil {
-		log.Fatalf("failed to bootstrap: %v", err)
-	}
-	defer dbPool.Close()
 
 	router := routerFactory.Build()
-
-	addr := ":" + config.Load().HTTPPort
-	srv := &http.Server{
-		Addr:    addr,
+	server := &http.Server{
+		Addr:    ":" + cfg.HTTPPort,
 		Handler: router,
 	}
 
+	return &App{
+		DB:       dbPool,
+		Router:   server,
+		WSHub:    wsHub,
+		HTTPPort: cfg.HTTPPort,
+	}, nil
+}
+
+func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Printf("warning: .env not loaded, using environment vars: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	app, err := bootstrap(ctx)
+	if err != nil {
+		log.Fatalf("failed to bootstrap: %v", err)
+	}
+	defer app.DB.Close()
+
 	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := app.Router.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server stopped with error: %v", err)
 		}
 	}()
@@ -135,36 +146,8 @@ func main() {
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
-	if err := srv.Shutdown(shutdownCtx); err != nil {
+	if err := app.Router.Shutdown(shutdownCtx); err != nil {
 		log.Printf("graceful shutdown failed: %v", err)
 	}
 	cancel()
-}
-
-// noopVerificationSender es un placeholder temporal hasta integrar proveedor de email.
-type noopVerificationSender struct {
-	logr *slog.Logger
-}
-
-func (s *noopVerificationSender) SendVerification(ctx context.Context, email, code string) error {
-	if s.logr != nil {
-		s.logr.Info("verification email noop sender", "email", email)
-	}
-	return nil
-}
-
-// jwtValidatorAdapter conecta JWTProvider con el middleware TokenValidator.
-type jwtValidatorAdapter struct {
-	provider crypto.JWTProvider
-}
-
-func (j jwtValidatorAdapter) Validate(token string) (httpapi.AuthContext, error) {
-	claims, err := j.provider.Validate(token)
-	if err != nil {
-		return httpapi.AuthContext{}, err
-	}
-	return httpapi.AuthContext{
-		UserID: claims.Subject,
-		Role:   claims.Role,
-	}, nil
 }

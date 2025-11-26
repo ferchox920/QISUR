@@ -13,12 +13,10 @@ require (
 	github.com/swaggo/gin-swagger v1.6.1
 	github.com/swaggo/swag v1.16.6
 	golang.org/x/crypto v0.40.0
+	golang.org/x/time v0.14.0
 )
 
-require (
-	golang.org/x/time v0.14.0 // indirect
-	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
-)
+require gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
