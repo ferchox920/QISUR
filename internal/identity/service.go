@@ -135,11 +135,14 @@ func (s *service) register(ctx context.Context, input RegisterUserInput, role Ro
 		if err := tx.SaveVerificationCode(ctx, created.ID, code, exp); err != nil {
 			return User{}, err
 		}
-		if err := s.deps.VerificationSender.SendVerification(ctx, created.Email, code); err != nil {
-			return User{}, err
-		}
 		if err := tx.Commit(ctx); err != nil {
 			return User{}, err
+		}
+		if err := s.deps.VerificationSender.SendVerification(ctx, created.Email, code); err != nil {
+			// Intento de reenvio inmediato para minimizar fallos transitorios.
+			if retryErr := s.deps.VerificationSender.SendVerification(ctx, created.Email, code); retryErr != nil {
+				return User{}, retryErr
+			}
 		}
 		return created, nil
 	}

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -30,7 +31,7 @@ func NewCatalogHandler(svc catalog.Service, emitter EventEmitter) *CatalogHandle
 func (h *CatalogHandler) ListCategories(c *gin.Context) {
 	cats, err := h.svc.ListCategories(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondCatalogError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, toCategoryResponses(cats))
@@ -56,7 +57,7 @@ func (h *CatalogHandler) CreateCategory(c *gin.Context) {
 		Description: req.Description,
 	})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondCatalogError(c, err)
 		return
 	}
 	if h.emitter != nil {
@@ -88,7 +89,7 @@ func (h *CatalogHandler) UpdateCategory(c *gin.Context) {
 		Description: req.Description,
 	})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondCatalogError(c, err)
 		return
 	}
 	if h.emitter != nil {
@@ -107,7 +108,7 @@ func (h *CatalogHandler) UpdateCategory(c *gin.Context) {
 func (h *CatalogHandler) DeleteCategory(c *gin.Context) {
 	id := c.Param("id")
 	if err := h.svc.DeleteCategory(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondCatalogError(c, err)
 		return
 	}
 	if h.emitter != nil {
@@ -149,7 +150,7 @@ func (h *CatalogHandler) ListProducts(c *gin.Context) {
 		Offset: offset,
 	})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondCatalogError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -169,7 +170,7 @@ func (h *CatalogHandler) GetProduct(c *gin.Context) {
 	id := c.Param("id")
 	product, err := h.svc.GetProduct(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondCatalogError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, toProductResponse(product))
@@ -197,7 +198,7 @@ func (h *CatalogHandler) CreateProduct(c *gin.Context) {
 		Stock:       req.Stock,
 	})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondCatalogError(c, err)
 		return
 	}
 	if h.emitter != nil {
@@ -231,7 +232,7 @@ func (h *CatalogHandler) UpdateProduct(c *gin.Context) {
 		Stock:       req.Stock,
 	})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondCatalogError(c, err)
 		return
 	}
 	if h.emitter != nil {
@@ -250,7 +251,7 @@ func (h *CatalogHandler) UpdateProduct(c *gin.Context) {
 func (h *CatalogHandler) DeleteProduct(c *gin.Context) {
 	id := c.Param("id")
 	if err := h.svc.DeleteProduct(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondCatalogError(c, err)
 		return
 	}
 	if h.emitter != nil {
@@ -271,7 +272,7 @@ func (h *CatalogHandler) AddProductCategory(c *gin.Context) {
 	productID := c.Param("id")
 	categoryID := c.Param("categoryId")
 	if err := h.svc.AssignProductCategory(c.Request.Context(), productID, categoryID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondCatalogError(c, err)
 		return
 	}
 	if h.emitter != nil {
@@ -298,7 +299,7 @@ func (h *CatalogHandler) Search(c *gin.Context) {
 		SortDir: sortDir,
 	})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondCatalogError(c, err)
 		return
 	}
 
@@ -352,7 +353,7 @@ func (h *CatalogHandler) GetProductHistory(c *gin.Context) {
 		End:   end,
 	})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondCatalogError(c, err)
 		return
 	}
 
@@ -398,4 +399,18 @@ func parseQueryInt(c *gin.Context, key string, fallback int) int {
 		}
 	}
 	return fallback
+}
+
+func respondCatalogError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, catalog.ErrInvalidCategory),
+		errors.Is(err, catalog.ErrInvalidCategoryID),
+		errors.Is(err, catalog.ErrInvalidProduct),
+		errors.Is(err, catalog.ErrInvalidProductID),
+		errors.Is(err, catalog.ErrInvalidSearchKind):
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	default:
+		_ = c.Error(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+	}
 }

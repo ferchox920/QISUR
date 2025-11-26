@@ -13,6 +13,10 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	docs "catalog-api/docs/swagger"
 	"catalog-api/internal/catalog"
@@ -103,7 +107,7 @@ func main() {
 	_ = godotenv.Load()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer cancel() // fallback; main handles shutdown below.
 
 	dbPool, _, routerFactory, _, err := bootstrap(ctx)
 	if err != nil {
@@ -114,10 +118,27 @@ func main() {
 	router := routerFactory.Build()
 
 	addr := ":" + config.Load().HTTPPort
-	// TODO: integrar apagado elegante con cancelacion de contexto.
-	if err := router.Run(addr); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("server stopped with error: %v", err)
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: router,
 	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server stopped with error: %v", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("graceful shutdown failed: %v", err)
+	}
+	cancel()
 }
 
 // noopVerificationSender es un placeholder temporal hasta integrar proveedor de email.
@@ -127,7 +148,7 @@ type noopVerificationSender struct {
 
 func (s *noopVerificationSender) SendVerification(ctx context.Context, email, code string) error {
 	if s.logr != nil {
-		s.logr.Info("verification email noop sender", "email", email, "code", code)
+		s.logr.Info("verification email noop sender", "email", email)
 	}
 	return nil
 }

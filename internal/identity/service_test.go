@@ -287,20 +287,49 @@ func (p fixedCodeProvider) Generate(ctx context.Context, userID string) (string,
 	return p.code, p.err
 }
 
-func TestRegister_RollsBackOnSendFailure(t *testing.T) {
+func TestRegister_SendFailureAfterCommitReturnsError(t *testing.T) {
 	repo := &trackingRepo{}
+	sender := &flakySender{failures: 2}
 	svc := NewService(ServiceDeps{
 		UserRepo:                 repo,
 		RoleRepo:                 repo,
 		PasswordHasher:           stubHasher{},
 		VerificationCodeProvider: fixedCodeProvider{code: "123456"},
-		VerificationSender:       failingSender{},
+		VerificationSender:       sender,
 	})
 	if _, err := svc.RegisterClient(context.Background(), RegisterUserInput{Email: "a@b.c", Password: "secret123", FullName: "Test"}); err == nil {
 		t.Fatalf("expected error due to send failure")
 	}
-	if !repo.rolledBack || repo.committed {
-		t.Fatalf("expected transaction rollback, got committed=%v rolledBack=%v", repo.committed, repo.rolledBack)
+	if !repo.committed || repo.rolledBack {
+		t.Fatalf("expected transaction committed before send, got committed=%v rolledBack=%v", repo.committed, repo.rolledBack)
+	}
+	if sender.sent != 2 {
+		t.Fatalf("expected two send attempts, got %d", sender.sent)
+	}
+}
+
+func TestRegister_SendRetriesOnceAndSucceeds(t *testing.T) {
+	repo := &trackingRepo{}
+	sender := &flakySender{failures: 1}
+	code := "999000"
+	svc := NewService(ServiceDeps{
+		UserRepo:                 repo,
+		RoleRepo:                 repo,
+		PasswordHasher:           stubHasher{},
+		VerificationCodeProvider: fixedCodeProvider{code: code},
+		VerificationSender:       sender,
+	})
+	if _, err := svc.RegisterClient(context.Background(), RegisterUserInput{Email: "a@b.c", Password: "secret123", FullName: "Test"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sender.sent != 2 {
+		t.Fatalf("expected two send attempts (one retry), got %d", sender.sent)
+	}
+	if sender.sentCode != code || sender.sentTo != "a@b.c" {
+		t.Fatalf("expected successful send to a@b.c with code %s, got to=%s code=%s", code, sender.sentTo, sender.sentCode)
+	}
+	if !repo.committed || repo.rolledBack {
+		t.Fatalf("expected transaction committed, got committed=%v rolledBack=%v", repo.committed, repo.rolledBack)
 	}
 }
 
@@ -376,4 +405,22 @@ func (s stubTokenProvider) Generate(ctx context.Context, user User) (string, err
 		return "", s.err
 	}
 	return s.token, nil
+}
+
+type flakySender struct {
+	failures int
+	sent     int
+	sentTo   string
+	sentCode string
+}
+
+func (f *flakySender) SendVerification(ctx context.Context, email, code string) error {
+	if f.sent < f.failures {
+		f.sent++
+		return errors.New("send failed")
+	}
+	f.sent++
+	f.sentTo = email
+	f.sentCode = code
+	return nil
 }

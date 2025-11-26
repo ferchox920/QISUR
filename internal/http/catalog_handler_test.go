@@ -395,8 +395,8 @@ func TestDeleteProduct_Error(t *testing.T) {
 
 	h.DeleteProduct(c)
 
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", w.Code)
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", w.Code)
 	}
 	if len(em.events) != 0 {
 		t.Fatalf("expected no event when delete fails, got %+v", em.events)
