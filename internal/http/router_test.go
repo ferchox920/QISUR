@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"catalog-api/internal/catalog"
+	"catalog-api/internal/identity"
 	"catalog-api/internal/ws"
 
 	"github.com/gin-gonic/gin"
@@ -33,6 +34,9 @@ func TestRouter_Healthz(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if ct := w.Header().Get("X-Content-Type-Options"); ct != "nosniff" {
+		t.Fatalf("expected X-Content-Type-Options header to be set, got %q", ct)
 	}
 }
 
@@ -187,5 +191,34 @@ func TestRouter_AdminIdentityRoutesUseRoleMiddleware(t *testing.T) {
 	}
 	if idSvc.updateRoleInput.Role != "" {
 		t.Fatalf("service should not be invoked on forbidden request")
+	}
+}
+
+func TestRouter_LoginRateLimitedPerIP(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	idSvc := &stubIdentityService{
+		loginResp: identity.AuthToken{Token: "tok"},
+	}
+	router := (&RouterFactory{
+		IdentityHandler: NewIdentityHandler(idSvc),
+	}).Build()
+
+	for i := 0; i < 5; i++ {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/identity/login", strings.NewReader(`{"email":"a@b.c","password":"x"}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.RemoteAddr = "192.0.2.1:1234"
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200 on attempt %d, got %d", i+1, w.Code)
+		}
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/identity/login", strings.NewReader(`{"email":"a@b.c","password":"x"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.RemoteAddr = "192.0.2.1:1234"
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 after exceeding rate limit, got %d", w.Code)
 	}
 }

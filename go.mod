@@ -15,7 +15,10 @@ require (
 	golang.org/x/crypto v0.40.0
 )
 
-require gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
+require (
+	golang.org/x/time v0.14.0 // indirect
+	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
+)
 
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect

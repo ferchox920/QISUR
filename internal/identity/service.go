@@ -3,6 +3,7 @@ package identity
 import (
 	"context"
 	"errors"
+	"regexp"
 	"time"
 )
 
@@ -97,6 +98,12 @@ func (s *service) register(ctx context.Context, input RegisterUserInput, role Ro
 	}
 	if input.Email == "" || input.Password == "" || input.FullName == "" {
 		return User{}, ErrInvalidCredentials
+	}
+	if len(input.Password) < 8 {
+		return User{}, errors.New("password must be at least 8 characters")
+	}
+	if weakPassword(input.Password) {
+		return User{}, errors.New("password must include upper, lower, number")
 	}
 	if _, err := s.deps.UserRepo.GetByEmail(ctx, input.Email); err == nil {
 		return User{}, ErrEmailAlreadyRegistered
@@ -279,6 +286,13 @@ func (s *service) consumePasswordHash(password string) {
 		return
 	}
 	_ = s.deps.PasswordHasher.Compare(dummyPasswordHash, password)
+}
+
+func weakPassword(p string) bool {
+	hasLower := regexp.MustCompile(`[a-z]`).MatchString(p)
+	hasUpper := regexp.MustCompile(`[A-Z]`).MatchString(p)
+	hasDigit := regexp.MustCompile(`[0-9]`).MatchString(p)
+	return !(hasLower && hasUpper && hasDigit)
 }
 
 func (s *service) UpdateUser(ctx context.Context, input UpdateUserInput) (User, error) {

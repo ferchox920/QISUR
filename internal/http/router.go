@@ -2,12 +2,14 @@ package http
 
 import (
 	"net/http"
+	"time"
 
 	"catalog-api/internal/ws"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"golang.org/x/time/rate"
 )
 
 // RouterFactory agrupa los handlers necesarios para construir el router HTTP.
@@ -21,6 +23,7 @@ type RouterFactory struct {
 // Build cablea todas las rutas HTTP para REST y WebSocket.
 func (f *RouterFactory) Build() *gin.Engine {
 	router := gin.Default()
+	router.Use(SecurityHeadersMiddleware())
 
 	router.GET("/healthz", func(c *gin.Context) {
 		c.Status(http.StatusOK)
@@ -79,6 +82,8 @@ func (f *RouterFactory) Build() *gin.Engine {
 	}
 	if f.IdentityHandler != nil {
 		identityGroup := api.Group("/identity")
+		identityLimiter := NewIPRateLimiter(rate.Every(time.Minute/5), 5)
+		identityGroup.Use(RateLimitMiddleware(identityLimiter))
 		identityGroup.POST("/users/client", f.IdentityHandler.RegisterClient)
 		identityGroup.POST("/users", f.IdentityHandler.RegisterUser)
 		identityGroup.POST("/verify", f.IdentityHandler.VerifyUser)

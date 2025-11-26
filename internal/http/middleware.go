@@ -3,8 +3,10 @@ package http
 import (
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/time/rate"
 )
 
 // TokenValidator valida tokens de auth y devuelve un contexto de auth.
@@ -68,6 +70,62 @@ func RoleMiddleware(roles ...string) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 			return
 		}
+		c.Next()
+	}
+}
+
+// RateLimitMiddleware aplica limitacion por IP usando un IPRateLimiter compartido.
+func RateLimitMiddleware(limiter *IPRateLimiter) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ip := c.ClientIP()
+		if ip == "" {
+			ip = "unknown"
+		}
+		if !limiter.Allow(ip) {
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "too many requests"})
+			return
+		}
+		c.Next()
+	}
+}
+
+// IPRateLimiter gestiona limitadores por IP.
+type IPRateLimiter struct {
+	limit   rate.Limit
+	burst   int
+	mu      sync.Mutex
+	clients map[string]*rate.Limiter
+}
+
+func NewIPRateLimiter(limit rate.Limit, burst int) *IPRateLimiter {
+	return &IPRateLimiter{
+		limit:   limit,
+		burst:   burst,
+		clients: make(map[string]*rate.Limiter),
+	}
+}
+
+func (l *IPRateLimiter) getLimiter(key string) *rate.Limiter {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if limiter, ok := l.clients[key]; ok {
+		return limiter
+	}
+	limiter := rate.NewLimiter(l.limit, l.burst)
+	l.clients[key] = limiter
+	return limiter
+}
+
+func (l *IPRateLimiter) Allow(key string) bool {
+	return l.getLimiter(key).Allow()
+}
+
+// SecurityHeadersMiddleware inyecta cabeceras defensivas basicas.
+func SecurityHeadersMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("X-Frame-Options", "DENY")
+		c.Header("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 		c.Next()
 	}
 }
