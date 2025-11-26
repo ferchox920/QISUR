@@ -74,7 +74,7 @@ func generateID(n int) string {
 }
 
 func TestCreateCategory_ValidatesName(t *testing.T) {
-	svc := NewService(ServiceDeps{CategoryRepo: newStubRepo()})
+	svc, _ := NewService(ServiceDeps{CategoryRepo: newStubRepo(), ProductRepo: stubProductRepo{}})
 	_, err := svc.CreateCategory(context.Background(), CreateCategoryInput{Name: ""})
 	if !errors.Is(err, ErrInvalidCategory) {
 		t.Fatalf("expected ErrInvalidCategory, got %v", err)
@@ -83,7 +83,7 @@ func TestCreateCategory_ValidatesName(t *testing.T) {
 
 func TestCreateCategory_Success(t *testing.T) {
 	repo := newStubRepo()
-	svc := NewService(ServiceDeps{CategoryRepo: repo})
+	svc, _ := NewService(ServiceDeps{CategoryRepo: repo, ProductRepo: stubProductRepo{}})
 	cat, err := svc.CreateCategory(context.Background(), CreateCategoryInput{Name: "Books", Description: "All books"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -97,7 +97,7 @@ func TestListCategories(t *testing.T) {
 	repo := newStubRepo()
 	_, _ = repo.CreateCategory(context.Background(), Category{Name: "A"})
 	_, _ = repo.CreateCategory(context.Background(), Category{Name: "B"})
-	svc := NewService(ServiceDeps{CategoryRepo: repo})
+	svc, _ := NewService(ServiceDeps{CategoryRepo: repo, ProductRepo: stubProductRepo{}})
 	cats, err := svc.ListCategories(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -108,7 +108,7 @@ func TestListCategories(t *testing.T) {
 }
 
 func TestUpdateCategory_ValidatesID(t *testing.T) {
-	svc := NewService(ServiceDeps{CategoryRepo: newStubRepo()})
+	svc, _ := NewService(ServiceDeps{CategoryRepo: newStubRepo(), ProductRepo: stubProductRepo{}})
 	_, err := svc.UpdateCategory(context.Background(), UpdateCategoryInput{ID: "", Name: "New"})
 	if !errors.Is(err, ErrInvalidCategoryID) {
 		t.Fatalf("expected ErrInvalidCategoryID, got %v", err)
@@ -116,7 +116,7 @@ func TestUpdateCategory_ValidatesID(t *testing.T) {
 }
 
 func TestDeleteCategory_ValidatesID(t *testing.T) {
-	svc := NewService(ServiceDeps{CategoryRepo: newStubRepo()})
+	svc, _ := NewService(ServiceDeps{CategoryRepo: newStubRepo(), ProductRepo: stubProductRepo{}})
 	err := svc.DeleteCategory(context.Background(), "")
 	if !errors.Is(err, ErrInvalidCategoryID) {
 		t.Fatalf("expected ErrInvalidCategoryID, got %v", err)
@@ -126,7 +126,7 @@ func TestDeleteCategory_ValidatesID(t *testing.T) {
 func TestUpdateCategory_Success(t *testing.T) {
 	repo := newStubRepo()
 	created, _ := repo.CreateCategory(context.Background(), Category{Name: "Old"})
-	svc := NewService(ServiceDeps{CategoryRepo: repo})
+	svc, _ := NewService(ServiceDeps{CategoryRepo: repo, ProductRepo: stubProductRepo{}})
 	updated, err := svc.UpdateCategory(context.Background(), UpdateCategoryInput{ID: created.ID, Name: "New"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -139,7 +139,7 @@ func TestUpdateCategory_Success(t *testing.T) {
 func TestDeleteCategory_Success(t *testing.T) {
 	repo := newStubRepo()
 	created, _ := repo.CreateCategory(context.Background(), Category{Name: "ToDelete"})
-	svc := NewService(ServiceDeps{CategoryRepo: repo})
+	svc, _ := NewService(ServiceDeps{CategoryRepo: repo, ProductRepo: stubProductRepo{}})
 	if err := svc.DeleteCategory(context.Background(), created.ID); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -184,7 +184,7 @@ func (stubProductRepo) AssignProductCategory(ctx context.Context, productID, cat
 }
 
 func TestSearch_InvalidKind(t *testing.T) {
-	svc := NewService(ServiceDeps{CategoryRepo: newStubRepo(), ProductRepo: stubProductRepo{}})
+	svc, _ := NewService(ServiceDeps{CategoryRepo: newStubRepo(), ProductRepo: stubProductRepo{}})
 	if _, err := svc.Search(context.Background(), SearchFilter{Kind: "unknown"}); !errors.Is(err, ErrInvalidSearchKind) {
 		t.Fatalf("expected ErrInvalidSearchKind, got %v", err)
 	}

@@ -66,21 +66,18 @@ type service struct {
 }
 
 // NewService construye un servicio de catalogo.
-func NewService(deps ServiceDeps) Service {
-	return &service{deps: deps}
+func NewService(deps ServiceDeps) (Service, error) {
+	if deps.CategoryRepo == nil || deps.ProductRepo == nil {
+		return nil, ErrRepositoryNotConfigured
+	}
+	return &service{deps: deps}, nil
 }
 
 func (s *service) ListCategories(ctx context.Context) ([]Category, error) {
-	if s.deps.CategoryRepo == nil {
-		return nil, ErrRepositoryNotConfigured
-	}
 	return s.deps.CategoryRepo.ListCategories(ctx)
 }
 
 func (s *service) CreateCategory(ctx context.Context, input CreateCategoryInput) (Category, error) {
-	if s.deps.CategoryRepo == nil {
-		return Category{}, ErrRepositoryNotConfigured
-	}
 	if input.Name == "" {
 		return Category{}, ErrInvalidCategory
 	}
@@ -91,9 +88,6 @@ func (s *service) CreateCategory(ctx context.Context, input CreateCategoryInput)
 }
 
 func (s *service) UpdateCategory(ctx context.Context, input UpdateCategoryInput) (Category, error) {
-	if s.deps.CategoryRepo == nil {
-		return Category{}, ErrRepositoryNotConfigured
-	}
 	if input.ID == "" {
 		return Category{}, ErrInvalidCategoryID
 	}
@@ -108,9 +102,6 @@ func (s *service) UpdateCategory(ctx context.Context, input UpdateCategoryInput)
 }
 
 func (s *service) DeleteCategory(ctx context.Context, id string) error {
-	if s.deps.CategoryRepo == nil {
-		return ErrRepositoryNotConfigured
-	}
 	if id == "" {
 		return ErrInvalidCategoryID
 	}
@@ -118,9 +109,6 @@ func (s *service) DeleteCategory(ctx context.Context, id string) error {
 }
 
 func (s *service) ListProducts(ctx context.Context, filter ProductFilter) ([]Product, int64, error) {
-	if s.deps.ProductRepo == nil {
-		return nil, 0, ErrRepositoryNotConfigured
-	}
 	// defaults basicos de paginacion
 	if filter.Limit <= 0 {
 		filter.Limit = 20
@@ -140,9 +128,6 @@ func (s *service) ListProducts(ctx context.Context, filter ProductFilter) ([]Pro
 }
 
 func (s *service) GetProduct(ctx context.Context, id string) (Product, error) {
-	if s.deps.ProductRepo == nil {
-		return Product{}, ErrRepositoryNotConfigured
-	}
 	if id == "" {
 		return Product{}, ErrInvalidProductID
 	}
@@ -150,9 +135,6 @@ func (s *service) GetProduct(ctx context.Context, id string) (Product, error) {
 }
 
 func (s *service) CreateProduct(ctx context.Context, input CreateProductInput) (Product, error) {
-	if s.deps.ProductRepo == nil {
-		return Product{}, ErrRepositoryNotConfigured
-	}
 	if err := validateProductInput(input.Name, input.Price, input.Stock); err != nil {
 		return Product{}, err
 	}
@@ -165,9 +147,6 @@ func (s *service) CreateProduct(ctx context.Context, input CreateProductInput) (
 }
 
 func (s *service) UpdateProduct(ctx context.Context, input UpdateProductInput) (Product, error) {
-	if s.deps.ProductRepo == nil {
-		return Product{}, ErrRepositoryNotConfigured
-	}
 	if input.ID == "" {
 		return Product{}, ErrInvalidProductID
 	}
@@ -184,9 +163,6 @@ func (s *service) UpdateProduct(ctx context.Context, input UpdateProductInput) (
 }
 
 func (s *service) DeleteProduct(ctx context.Context, id string) error {
-	if s.deps.ProductRepo == nil {
-		return ErrRepositoryNotConfigured
-	}
 	if id == "" {
 		return ErrInvalidProductID
 	}
@@ -194,9 +170,6 @@ func (s *service) DeleteProduct(ctx context.Context, id string) error {
 }
 
 func (s *service) GetProductHistory(ctx context.Context, id string, filter ProductHistoryFilter) ([]ProductHistory, error) {
-	if s.deps.ProductRepo == nil {
-		return nil, ErrRepositoryNotConfigured
-	}
 	if id == "" {
 		return nil, ErrInvalidProductID
 	}
@@ -207,9 +180,6 @@ func (s *service) GetProductHistory(ctx context.Context, id string, filter Produ
 }
 
 func (s *service) AssignProductCategory(ctx context.Context, productID, categoryID string) error {
-	if s.deps.ProductRepo == nil {
-		return ErrRepositoryNotConfigured
-	}
 	if productID == "" {
 		return ErrInvalidProductID
 	}
@@ -229,9 +199,6 @@ func (s *service) Search(ctx context.Context, filter SearchFilter) (SearchResult
 	}
 	switch filter.Kind {
 	case "product":
-		if s.deps.ProductRepo == nil {
-			return SearchResult{}, ErrRepositoryNotConfigured
-		}
 		pf := ProductFilter{
 			Query:   filter.Query,
 			Limit:   filter.Limit,
@@ -245,9 +212,6 @@ func (s *service) Search(ctx context.Context, filter SearchFilter) (SearchResult
 		}
 		return SearchResult{Products: items, Total: total}, nil
 	case "category":
-		if s.deps.CategoryRepo == nil {
-			return SearchResult{}, ErrRepositoryNotConfigured
-		}
 		items, total, err := s.deps.CategoryRepo.SearchCategories(ctx, filter)
 		if err != nil {
 			return SearchResult{}, err
