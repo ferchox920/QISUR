@@ -25,6 +25,7 @@ type Config struct {
 	JWTIssuer        string
 	JWTTTL           time.Duration
 	WSAllowedOrigins []string
+	ShutdownTimeout  time.Duration
 }
 
 // SMTPConfig contiene las credenciales SMTP para el envio de correo.
@@ -46,6 +47,7 @@ func Load() Config {
 		JWTIssuer:        envOrDefault("JWT_ISSUER", "catalog-api"),
 		JWTTTL:           durationOrDefault("JWT_TTL", 15*time.Minute),
 		WSAllowedOrigins: splitAndTrim(os.Getenv("WS_ALLOWED_ORIGINS")),
+		ShutdownTimeout:  durationOrDefault("SHUTDOWN_TIMEOUT", 10*time.Second),
 		SMTP: SMTPConfig{
 			Host:     os.Getenv("SMTP_HOST"),
 			Port:     intOrDefault("SMTP_PORT", 587),
@@ -75,7 +77,8 @@ func defaultDatabaseURL() string {
 	host := envOrDefault("POSTGRES_HOST", "localhost")
 	port := envOrDefault("POSTGRES_PORT", "55432")
 	db := envOrDefault("POSTGRES_DB", "catalog")
-	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, password, host, port, db)
+	sslMode := envOrDefault("POSTGRES_SSLMODE", "disable")
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", user, password, host, port, db, sslMode)
 }
 
 func durationOrDefault(key string, fallback time.Duration) time.Duration {
@@ -111,6 +114,9 @@ func boolOrDefault(key string, fallback bool) bool {
 func splitAndTrim(val string) []string {
 	if val == "" {
 		return nil
+	}
+	if strings.TrimSpace(val) == "*" {
+		return []string{"*"}
 	}
 	parts := strings.Split(val, ",")
 	out := make([]string, 0, len(parts))

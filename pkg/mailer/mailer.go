@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 
-	"gopkg.in/gomail.v2"
+	mail "github.com/wneessen/go-mail"
 )
 
-// MailVerificationSender implementa identity.VerificationSender usando SMTP con gomail.
+// MailVerificationSender implementa identity.VerificationSender usando SMTP.
 type MailVerificationSender struct {
-	dialer *gomail.Dialer
+	client *mail.Client
 	from   string
 }
 
@@ -20,22 +20,44 @@ func NewMailVerificationSender(host string, port int, username, password, from s
 	if host == "" || from == "" {
 		return nil
 	}
-	d := gomail.NewDialer(host, port, username, password)
-	if skipTLSVerify {
-		d.TLSConfig = &tls.Config{InsecureSkipVerify: true} // solo dev/test
+	opts := []mail.Option{
+		mail.WithPort(port),
+		mail.WithTLSPolicy(mail.TLSOpportunistic),
 	}
-	return &MailVerificationSender{dialer: d, from: from}
+	if username != "" || password != "" {
+		opts = append(opts,
+			mail.WithUsername(username),
+			mail.WithPassword(password),
+			mail.WithSMTPAuth(mail.SMTPAuthPlain),
+		)
+	}
+	if skipTLSVerify {
+		opts = append(opts,
+			mail.WithTLSPolicy(mail.NoTLS),
+			mail.WithTLSConfig(&tls.Config{InsecureSkipVerify: true}),
+		)
+	}
+
+	c, err := mail.NewClient(host, opts...)
+	if err != nil {
+		return nil
+	}
+	return &MailVerificationSender{client: c, from: from}
 }
 
 // SendVerification envia un correo de texto plano con el codigo de verificacion.
 func (s *MailVerificationSender) SendVerification(ctx context.Context, email, code string) error {
-	if s == nil || s.dialer == nil {
+	if s == nil || s.client == nil {
 		return errors.New("mail sender no configurado")
 	}
-	msg := gomail.NewMessage()
-	msg.SetHeader("From", s.from)
-	msg.SetHeader("To", email)
-	msg.SetHeader("Subject", "Verifica tu cuenta")
-	msg.SetBody("text/plain", fmt.Sprintf("Tu codigo de verificacion es: %s", code))
-	return s.dialer.DialAndSend(msg)
+	msg := mail.NewMsg()
+	if err := msg.From(s.from); err != nil {
+		return err
+	}
+	if err := msg.To(email); err != nil {
+		return err
+	}
+	msg.Subject("Verifica tu cuenta")
+	msg.SetBodyString(mail.TypeTextPlain, fmt.Sprintf("Tu codigo de verificacion es: %s", code))
+	return s.client.DialAndSendWithContext(ctx, msg)
 }

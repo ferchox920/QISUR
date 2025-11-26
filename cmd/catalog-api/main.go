@@ -1,6 +1,7 @@
 // @title QISUR Catalog API
 // @version 0.1.0
 // @description Catalog and identity API with WebSocket notifications.
+// @host localhost:8080
 // @BasePath /api/v1
 // @schemes http
 // @securityDefinitions.apikey BearerAuth
@@ -10,12 +11,11 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	docs "catalog-api/docs/swagger"
 	"catalog-api/internal/catalog"
@@ -38,11 +38,10 @@ type App struct {
 	Router   *http.Server
 	WSHub    *ws.Hub
 	HTTPPort string
+	Logr     *slog.Logger
 }
 
-func bootstrap(ctx context.Context) (*App, error) {
-	cfg := config.Load()
-	logr := logger.New()
+func bootstrap(ctx context.Context, cfg config.Config, logr *slog.Logger) (*App, error) {
 	docs.SwaggerInfo.BasePath = "/api/v1"
 	docs.SwaggerInfo.Schemes = []string{"http"}
 
@@ -52,7 +51,6 @@ func bootstrap(ctx context.Context) (*App, error) {
 	}
 
 	wsHub := ws.NewHub(cfg.WSAllowedOrigins)
-	go wsHub.Run(ctx)
 	eventEmitter := httpapi.NewSocketEmitter(wsHub)
 
 	identityRepo := postgres.NewIdentityRepository(dbPool)
@@ -117,26 +115,35 @@ func bootstrap(ctx context.Context) (*App, error) {
 		Router:   server,
 		WSHub:    wsHub,
 		HTTPPort: cfg.HTTPPort,
+		Logr:     logr,
 	}, nil
 }
 
 func main() {
+	logr := logger.New()
 	if err := godotenv.Load(); err != nil {
-		log.Printf("warning: .env not loaded, using environment vars: %v", err)
+		logr.Warn("env file not loaded, using environment vars", "error", err)
 	}
+	cfg := config.Load()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	app, err := bootstrap(ctx)
+	app, err := bootstrap(ctx, cfg, logr)
 	if err != nil {
-		log.Fatalf("failed to bootstrap: %v", err)
+		logr.Error("failed to bootstrap", "error", err)
+		os.Exit(1)
 	}
 	defer app.DB.Close()
 
+	if app.WSHub != nil {
+		go app.WSHub.Run(ctx)
+	}
+
 	go func() {
 		if err := app.Router.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server stopped with error: %v", err)
+			logr.Error("server stopped with error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -144,10 +151,10 @@ func main() {
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	<-quit
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer shutdownCancel()
 	if err := app.Router.Shutdown(shutdownCtx); err != nil {
-		log.Printf("graceful shutdown failed: %v", err)
+		logr.Error("graceful shutdown failed", "error", err)
 	}
 	cancel()
 }
