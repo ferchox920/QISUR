@@ -3,8 +3,9 @@ package http
 import (
 	"net/http"
 
+	"catalog-api/internal/ws"
+
 	"github.com/gin-gonic/gin"
-	socketio "github.com/googollee/go-socket.io"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -12,7 +13,7 @@ import (
 // RouterFactory bundles handlers required to build the HTTP router.
 type RouterFactory struct {
 	IdentityHandler *IdentityHandler
-	WSServer        *socketio.Server
+	WSHub           *ws.Hub
 	TokenValidator  TokenValidator
 	CatalogHandler  *CatalogHandler
 }
@@ -25,8 +26,10 @@ func (f *RouterFactory) Build() *gin.Engine {
 		c.Status(http.StatusOK)
 	})
 
-	if f.WSServer != nil {
-		router.GET("/socket.io/*any", gin.WrapH(f.WSServer))
+	if f.WSHub != nil {
+		router.GET("/ws", func(c *gin.Context) {
+			f.WSHub.ServeHTTP(c.Writer, c.Request)
+		})
 	}
 
 	api := router.Group("/api/v1")

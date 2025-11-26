@@ -1,13 +1,13 @@
 # QISUR
 
-API de catálogo e identidad con REST + WebSockets.
+API de catǭlogo e identidad con REST + WebSockets.
 
 ## Requisitos
 - Go 1.21+
 - Docker y docker-compose (para base y migraciones)
 - PostgreSQL (si corres sin Docker)
 
-## Instalación y ejecución
+## Instalaci��n y ejecuci��n
 1. Clonar el repo y configurar el entorno:
    ```bash
    .env.example .env 
@@ -28,11 +28,11 @@ API de catálogo e identidad con REST + WebSockets.
    ```
    Swagger disponible en `http://localhost:8080/docs` (spec en `/swagger/doc.json`).
 
-## Configuración del entorno
+## Configuraci��n del entorno
 Variables clave (ver `.env.example`):
 - `DATABASE_URL`: URL de Postgres (por defecto `postgres://catalog:catalog@db:5432/catalog?sslmode=disable` en Docker).
 - `HTTP_PORT`: Puerto HTTP (8080 por defecto).
-- SMTP (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`) para envío de verificación.
+- SMTP (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`) para env��o de verificaci��n.
 - JWT (`JWT_SECRET`, `JWT_ISSUER`, `JWT_TTL`).
 
 Plantilla `.env.example`:
@@ -62,19 +62,23 @@ SMTP_TLS_SKIP_VERIFY=false
 ```
 
 ## WebSockets
-- Servidor Socket.IO en `GET /socket.io/*any`.
-- Eventos emitidos (namespace `/`):
+- Endpoint WebSocket nativo en `GET /ws`.
+- Mensajes JSON con forma `{"event": "<nombre>", "data": <payload>}`.
+- Eventos emitidos:
   - `category.created|updated|deleted`
   - `product.created|updated|deleted`
   - `product.category_assigned`
-- Catálogo de eventos: `GET /api/v1/events`.
+- Catǭlogo de eventos: `GET /api/v1/events`.
 
 Ejemplo de cliente (JavaScript):
 ```js
-const socket = io("http://localhost:8080");
-socket.on("product.updated", (data) => {
-  console.log("Producto actualizado:", data);
-});
+const ws = new WebSocket("ws://localhost:8080/ws");
+ws.onmessage = (evt) => {
+  const { event, data } = JSON.parse(evt.data);
+  if (event === "product.updated") {
+    console.log("Producto actualizado:", data);
+  }
+};
 ```
 
 ## Ejemplos de uso (REST)
@@ -84,14 +88,14 @@ socket.on("product.updated", (data) => {
     -H "Content-Type: application/json" \
     -d '{"email":"user1@example.com","password":"password123"}'
   ```
-- Crear categoría (requiere Bearer token con rol admin):
+- Crear categor��a (requiere Bearer token con rol admin):
   ```bash
   curl -X POST http://localhost:8080/api/v1/categories \
     -H "Authorization: Bearer <TOKEN>" \
     -H "Content-Type: application/json" \
     -d '{"name":"Garden","description":"Outdoor and garden"}'
   ```
-- Asignar categoría a producto:
+- Asignar categor��a a producto:
   ```bash
   curl -X POST http://localhost:8080/api/v1/products/<product_id>/categories/<category_id> \
     -H "Authorization: Bearer <TOKEN>"
@@ -100,4 +104,3 @@ socket.on("product.updated", (data) => {
   ```bash
   curl "http://localhost:8080/api/v1/products/<product_id>/history?start=2025-01-01T00:00:00Z&end=2025-12-31T23:59:59Z"
   ```
-

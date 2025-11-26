@@ -1,13 +1,15 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"catalog-api/internal/ws"
+
 	"github.com/gin-gonic/gin"
-	socketio "github.com/googollee/go-socket.io"
 )
 
 type recordingEmitter struct {
@@ -38,11 +40,15 @@ func TestCatalogEventsPayloads(t *testing.T) {
 }
 
 func TestSocketEmitter_Broadcast(t *testing.T) {
-	server := socketio.NewServer(nil)
-	emitter := NewSocketEmitter(server)
-	// use server's BroadcastToNamespace; cannot assert actual network, but ensure no panic and payload is JSONable
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	hub := ws.NewHub()
+	go hub.Run(ctx)
+
+	emitter := NewSocketEmitter(hub)
+	// cannot assert actual network, but ensure no panic and payload is JSONable
 	payload := map[string]string{"id": "123"}
-	emitter.Emit("product.created", payload)
+	emitter.Emit(ws.EventProductCreated, payload)
 }
 
 func TestEventsCatalogResponse(t *testing.T) {

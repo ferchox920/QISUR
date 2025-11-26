@@ -1,79 +1,168 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Event Monitor</title>
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-sYO4D28iK9amMSMext0Rv1b3Ob+QMMKIh6UE8QslsDJ+Xx3TMOH2FZsnRvqYsggq" crossorigin="anonymous"></script>
+  <title>Eventos en vivo</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 16px; background: #0b1220; color: #f4f6fb; }
-    h1 { margin-bottom: 8px; }
-    .summary { display: flex; gap: 16px; align-items: center; margin-bottom: 12px; }
-    .badge { background: #1f2b46; padding: 8px 12px; border-radius: 8px; border: 1px solid #2f3c5a; }
-    .badge span { font-weight: bold; color: #5dd39e; }
-    #events { width: 100%; border-collapse: collapse; background: #121a2d; }
-    #events th, #events td { padding: 8px; border-bottom: 1px solid #1f2b46; }
-    #events th { text-align: left; background: #1a2336; }
-    .event-name { color: #5db2ff; }
-    .payload { font-family: "SFMono-Regular", Consolas, monospace; color: #b9d3ff; font-size: 13px; }
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap');
+    :root {
+      --bg: #0c0f1a;
+      --panel: #131a2b;
+      --border: #1f2941;
+      --accent: #58d6a6;
+      --muted: #94a3b8;
+      --event: #7ad3ff;
+      --danger: #f472b6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      background: radial-gradient(circle at 20% 20%, rgba(88,214,166,0.12), transparent 35%), radial-gradient(circle at 80% 0%, rgba(122,211,255,0.12), transparent 30%), var(--bg);
+      color: #e2e8f0;
+      font-family: 'Space Grotesk', 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    h1 { margin: 0; font-size: 24px; letter-spacing: 0.5px; }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--muted);
+      box-shadow: 0 0 0 4px rgba(88,214,166,0.08);
+    }
+    .status.connected { color: var(--accent); }
+    .status.connected .dot { background: var(--accent); }
+    .status.error { color: var(--danger); }
+    .status.error .dot { background: var(--danger); box-shadow: 0 0 0 4px rgba(244,114,182,0.12); }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+    }
+    .list {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+    .item {
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(19,26,43,0.7);
+      display: grid;
+      gap: 6px;
+    }
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .event-name {
+      color: var(--event);
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: 'SFMono-Regular', Consolas, 'Courier New', monospace;
+      color: #cbd5e1;
+      background: rgba(15,23,42,0.35);
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 13px;
+    }
   </style>
 </head>
 <body>
-  <h1>Live Events</h1>
-  <div class="summary">
-    <div class="badge">Total <span id="total">0</span></div>
+  <header>
+    <h1>Eventos de catálogo</h1>
+    <div id="status" class="status"><span class="dot"></span><span class="label">Conectando…</span></div>
+  </header>
+  <div class="panel">
+    <ul id="log" class="list"></ul>
   </div>
-  <table id="events">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Event</th>
-        <th>Payload</th>
-        <th>Time</th>
-      </tr>
-    </thead>
-    <tbody id="tbody"></tbody>
-  </table>
 
   <script>
-    const totalEl = document.getElementById('total');
-    const tbody = document.getElementById('tbody');
-    let count = 0;
+    const statusEl = document.getElementById('status');
+    const statusLabel = statusEl.querySelector('.label');
+    const log = document.getElementById('log');
 
-    const socket = io("/", { transports: ["websocket"] });
+    function setStatus(state, message) {
+      statusEl.classList.remove('connected', 'error');
+      statusEl.classList.add(state === 'connected' ? 'connected' : (state === 'error' ? 'error' : ''));
+      statusLabel.textContent = message;
+    }
 
-    function addRow(name, data) {
-      count++;
-      totalEl.textContent = count;
-      const tr = document.createElement('tr');
-      const payload = JSON.stringify(data, null, 2);
-      tr.innerHTML = `
-        <td>${count}</td>
-        <td class="event-name">${name}</td>
-        <td class="payload"><pre style="margin:0">${payload}</pre></td>
-        <td>${new Date().toLocaleTimeString()}</td>
+    function append(eventName, payload) {
+      const item = document.createElement('li');
+      item.className = 'item';
+      const time = new Date().toLocaleTimeString();
+      const pretty = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+      item.innerHTML = `
+        <div class="meta">
+          <span class="event-name">${eventName}</span>
+          <span>${time}</span>
+        </div>
+        <pre>${pretty}</pre>
       `;
-      tbody.prepend(tr);
-      // keep last 100
-      while (tbody.children.length > 100) {
-        tbody.removeChild(tbody.lastChild);
+      log.prepend(item);
+      while (log.children.length > 100) {
+        log.removeChild(log.lastChild);
       }
     }
 
-    const events = [
-      "category.created",
-      "category.updated",
-      "category.deleted",
-      "product.created",
-      "product.updated",
-      "product.deleted",
-      "product.category_assigned"
-    ];
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = `${protocol}://${window.location.host}/ws`;
+    const socket = new WebSocket(wsUrl);
 
-    socket.on("connect", () => addRow("socket.connected", { id: socket.id }));
-    socket.on("disconnect", () => addRow("socket.disconnected", {}));
+    socket.addEventListener('open', () => {
+      setStatus('connected', 'Conectado');
+    });
 
-    events.forEach(ev => {
-      socket.on(ev, data => addRow(ev, data));
+    socket.addEventListener('close', () => {
+      setStatus('error', 'Desconectado');
+    });
+
+    socket.addEventListener('error', () => {
+      setStatus('error', 'Error de conexión');
+    });
+
+    socket.addEventListener('message', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data && data.event !== undefined) {
+          append(data.event, data.data ?? {});
+        } else {
+          append('mensaje', data);
+        }
+      } catch (err) {
+        append('raw', event.data);
+      }
     });
   </script>
 </body>

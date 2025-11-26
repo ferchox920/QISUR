@@ -1,8 +1,9 @@
 package http
 
 import (
+	"catalog-api/internal/ws"
+
 	"github.com/gin-gonic/gin"
-	socketio "github.com/googollee/go-socket.io"
 )
 
 // EventEmitter broadcasts events to connected clients.
@@ -11,30 +12,29 @@ type EventEmitter interface {
 }
 
 type socketEmitter struct {
-	server *socketio.Server
+	hub *ws.Hub
 }
 
-// NewSocketEmitter builds an event emitter backed by a socket.io server.
-func NewSocketEmitter(server *socketio.Server) EventEmitter {
-	return &socketEmitter{server: server}
+// NewSocketEmitter builds an event emitter backed by a WebSocket hub.
+func NewSocketEmitter(hub *ws.Hub) EventEmitter {
+	return &socketEmitter{hub: hub}
 }
 
 func (e *socketEmitter) Emit(event string, data interface{}) {
-	if e.server == nil {
+	if e == nil || e.hub == nil {
 		return
 	}
-	// broadcast to default namespace
-	_ = e.server.BroadcastToNamespace("/", event, data)
+	_ = e.hub.Publish(event, data)
 }
 
 var catalogEvents = []EventInfo{
-	{Name: "category.created", Description: "Category created", Payload: `{"id","name","description"}`},
-	{Name: "category.updated", Description: "Category updated", Payload: `{"id","name","description"}`},
-	{Name: "category.deleted", Description: "Category deleted", Payload: `{"id"}`},
-	{Name: "product.created", Description: "Product created", Payload: `{"id","name","description","price","stock"}`},
-	{Name: "product.updated", Description: "Product updated", Payload: `{"id","name","description","price","stock"}`},
-	{Name: "product.deleted", Description: "Product deleted", Payload: `{"id"}`},
-	{Name: "product.category_assigned", Description: "Product assigned to category", Payload: `{"product_id","category_id"}`},
+	{Name: ws.EventCategoryCreated, Description: "Category created", Payload: `{"id","name","description"}`},
+	{Name: ws.EventCategoryUpdated, Description: "Category updated", Payload: `{"id","name","description"}`},
+	{Name: ws.EventCategoryDeleted, Description: "Category deleted", Payload: `{"id"}`},
+	{Name: ws.EventProductCreated, Description: "Product created", Payload: `{"id","name","description","price","stock"}`},
+	{Name: ws.EventProductUpdated, Description: "Product updated", Payload: `{"id","name","description","price","stock"}`},
+	{Name: ws.EventProductDeleted, Description: "Product deleted", Payload: `{"id"}`},
+	{Name: ws.EventProductCategoryAssigned, Description: "Product assigned to category", Payload: `{"product_id","category_id"}`},
 }
 
 // EventsCatalogDoc godoc

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"catalog-api/internal/catalog"
+	"catalog-api/internal/ws"
 
 	"github.com/gin-gonic/gin"
 )
@@ -59,7 +60,7 @@ func (h *CatalogHandler) CreateCategory(c *gin.Context) {
 		return
 	}
 	if h.emitter != nil {
-		h.emitter.Emit("category.created", toCategoryResponse(cat))
+		h.emitter.Emit(ws.EventCategoryCreated, toCategoryResponse(cat))
 	}
 	c.JSON(http.StatusCreated, toCategoryResponse(cat))
 }
@@ -91,7 +92,7 @@ func (h *CatalogHandler) UpdateCategory(c *gin.Context) {
 		return
 	}
 	if h.emitter != nil {
-		h.emitter.Emit("category.updated", toCategoryResponse(cat))
+		h.emitter.Emit(ws.EventCategoryUpdated, toCategoryResponse(cat))
 	}
 	c.JSON(http.StatusOK, toCategoryResponse(cat))
 }
@@ -110,7 +111,7 @@ func (h *CatalogHandler) DeleteCategory(c *gin.Context) {
 		return
 	}
 	if h.emitter != nil {
-		h.emitter.Emit("category.deleted", gin.H{"id": id})
+		h.emitter.Emit(ws.EventCategoryDeleted, gin.H{"id": id})
 	}
 	c.Status(http.StatusNoContent)
 }
@@ -200,7 +201,7 @@ func (h *CatalogHandler) CreateProduct(c *gin.Context) {
 		return
 	}
 	if h.emitter != nil {
-		h.emitter.Emit("product.created", toProductResponse(product))
+		h.emitter.Emit(ws.EventProductCreated, toProductResponse(product))
 	}
 	c.JSON(http.StatusCreated, toProductResponse(product))
 }
@@ -234,7 +235,7 @@ func (h *CatalogHandler) UpdateProduct(c *gin.Context) {
 		return
 	}
 	if h.emitter != nil {
-		h.emitter.Emit("product.updated", toProductResponse(product))
+		h.emitter.Emit(ws.EventProductUpdated, toProductResponse(product))
 	}
 	c.JSON(http.StatusOK, toProductResponse(product))
 }
@@ -253,7 +254,7 @@ func (h *CatalogHandler) DeleteProduct(c *gin.Context) {
 		return
 	}
 	if h.emitter != nil {
-		h.emitter.Emit("product.deleted", gin.H{"id": id})
+		h.emitter.Emit(ws.EventProductDeleted, gin.H{"id": id})
 	}
 	c.Status(http.StatusNoContent)
 }
@@ -274,7 +275,7 @@ func (h *CatalogHandler) AddProductCategory(c *gin.Context) {
 		return
 	}
 	if h.emitter != nil {
-		h.emitter.Emit("product.category_assigned", gin.H{"product_id": productID, "category_id": categoryID})
+		h.emitter.Emit(ws.EventProductCategoryAssigned, gin.H{"product_id": productID, "category_id": categoryID})
 	}
 	c.Status(http.StatusNoContent)
 }

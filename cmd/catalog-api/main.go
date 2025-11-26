@@ -18,18 +18,18 @@ import (
 	httpapi "catalog-api/internal/http"
 	"catalog-api/internal/identity"
 	"catalog-api/internal/storage/postgres"
+	"catalog-api/internal/ws"
 	"catalog-api/pkg/config"
 	"catalog-api/pkg/crypto"
 	"catalog-api/pkg/logger"
 	"catalog-api/pkg/mailer"
 
-	socketio "github.com/googollee/go-socket.io"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 )
 
 // bootstrap sets up infrastructure; domain wiring remains minimal and TODO-driven.
-func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *httpapi.RouterFactory, *socketio.Server, error) {
+func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *httpapi.RouterFactory, *ws.Hub, error) {
 	cfg := config.Load()
 	logr := logger.New()
 	docs.SwaggerInfo.BasePath = "/api/v1"
@@ -40,9 +40,9 @@ func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *h
 		return nil, nil, nil, nil, err
 	}
 
-	wsServer := socketio.NewServer(nil)
-	go wsServer.Serve()
-	eventEmitter := httpapi.NewSocketEmitter(wsServer)
+	wsHub := ws.NewHub()
+	go wsHub.Run(ctx)
+	eventEmitter := httpapi.NewSocketEmitter(wsHub)
 
 	identityRepo := postgres.NewIdentityRepository(dbPool)
 	catalogRepo := postgres.NewCatalogRepository(dbPool)
@@ -91,24 +91,24 @@ func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *h
 	routerFactory := &httpapi.RouterFactory{
 		CatalogHandler:  catalogHandler,
 		IdentityHandler: identityHandler,
-		WSServer:        wsServer,
+		WSHub:           wsHub,
 		TokenValidator:  jwtValidatorAdapter{provider: jwtProvider},
 	}
 
-	return dbPool, identityHandler, routerFactory, wsServer, nil
+	return dbPool, identityHandler, routerFactory, wsHub, nil
 }
 
 func main() {
 	_ = godotenv.Load()
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	dbPool, _, routerFactory, wsServer, err := bootstrap(ctx)
+	dbPool, _, routerFactory, _, err := bootstrap(ctx)
 	if err != nil {
 		log.Fatalf("failed to bootstrap: %v", err)
 	}
 	defer dbPool.Close()
-	defer wsServer.Close()
 
 	router := routerFactory.Build()
 
