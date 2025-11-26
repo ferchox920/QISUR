@@ -42,77 +42,25 @@ type App struct {
 }
 
 func bootstrap(ctx context.Context, cfg config.Config, logr *slog.Logger) (*App, error) {
-	docs.SwaggerInfo.BasePath = "/api/v1"
-	docs.SwaggerInfo.Schemes = []string{"http"}
+	initSwagger()
 
-	dbPool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	dbPool, err := initDB(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	wsHub := ws.NewHub(cfg.WSAllowedOrigins)
-	eventEmitter := httpapi.NewSocketEmitter(wsHub)
 
-	identityRepo := postgres.NewIdentityRepository(dbPool)
-	catalogRepo := postgres.NewCatalogRepository(dbPool)
+	verificationSender := initVerificationSender(cfg, logr)
+	jwtProvider := buildJWTProvider(cfg)
+	idService, catService := initServices(dbPool, verificationSender, jwtProvider)
+	seedAdmin(ctx, idService, cfg, logr)
 
-	jwtProvider := crypto.JWTProvider{
-		Secret: cfg.JWTSecret,
-		Issuer: cfg.JWTIssuer,
-		TTL:    cfg.JWTTTL,
-	}
-
-	var verificationSender identity.VerificationSender
-	if smtpSender := mailer.NewMailVerificationSender(cfg.SMTP.Host, cfg.SMTP.Port, cfg.SMTP.Username, cfg.SMTP.Password, cfg.SMTP.From, cfg.SMTP.SkipTLS); smtpSender != nil {
-		verificationSender = smtpSender
-	} else {
-		logr.Warn("SMTP not configured; falling back to noop verification sender")
-		verificationSender = &mailer.NoopVerificationSender{Logr: logr}
-	}
-
-	codeGenerator := crypto.RandomDigitsGenerator{Length: 6}
-
-	idService := identity.NewService(identity.ServiceDeps{
-		UserRepo:                 identityRepo,
-		RoleRepo:                 identityRepo,
-		PasswordHasher:           crypto.BcryptHasher{},
-		VerificationSender:       verificationSender,
-		VerificationCodeProvider: codeGenerator,
-		TokenProvider:            jwtProvider,
-	})
-
-	if err := idService.SeedAdmin(ctx, identity.AdminSeedInput{
-		Email:    cfg.AdminSeed.Email,
-		Password: cfg.AdminSeed.Password,
-		FullName: cfg.AdminSeed.FullName,
-	}); err != nil {
-		logr.Warn("admin seed skipped", "error", err)
-	}
-
-	catService := catalog.NewService(catalog.ServiceDeps{
-		CategoryRepo: catalogRepo,
-		ProductRepo:  catalogRepo,
-	})
-	catalogHandler := httpapi.NewCatalogHandler(catService, eventEmitter)
-
-	identityHandler := httpapi.NewIdentityHandler(idService)
-
-	routerFactory := &httpapi.RouterFactory{
-		CatalogHandler:  catalogHandler,
-		IdentityHandler: identityHandler,
-		WSHub:           wsHub,
-		TokenValidator:  httpapi.JWTValidatorAdapter{Provider: jwtProvider},
-	}
-
-	router := routerFactory.Build()
-	server := &http.Server{
-		Addr:    ":" + cfg.HTTPPort,
-		Handler: router,
-	}
+	router := initHTTPServer(cfg, wsHub, jwtProvider, idService, catService)
 
 	return &App{
 		DB:       dbPool,
-		Router:   server,
+		Router:   router,
 		WSHub:    wsHub,
 		HTTPPort: cfg.HTTPPort,
 		Logr:     logr,
@@ -125,6 +73,10 @@ func main() {
 		logr.Warn("env file not loaded, using environment vars", "error", err)
 	}
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		logr.Error("invalid configuration", "error", err)
+		os.Exit(1)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -157,4 +109,81 @@ func main() {
 		logr.Error("graceful shutdown failed", "error", err)
 	}
 	cancel()
+}
+
+func initSwagger() {
+	docs.SwaggerInfo.BasePath = "/api/v1"
+	docs.SwaggerInfo.Schemes = []string{"http"}
+}
+
+func initDB(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {
+	return pgxpool.New(ctx, cfg.DatabaseURL)
+}
+
+func initVerificationSender(cfg config.Config, logr *slog.Logger) identity.VerificationSender {
+	if smtpSender := mailer.NewMailVerificationSender(cfg.SMTP.Host, cfg.SMTP.Port, cfg.SMTP.Username, cfg.SMTP.Password, cfg.SMTP.From, cfg.SMTP.SkipTLS); smtpSender != nil {
+		return smtpSender
+	}
+	logr.Warn("SMTP not configured; falling back to noop verification sender")
+	return &mailer.NoopVerificationSender{Logr: logr}
+}
+
+func buildJWTProvider(cfg config.Config) crypto.JWTProvider {
+	return crypto.JWTProvider{
+		Secret: cfg.JWTSecret,
+		Issuer: cfg.JWTIssuer,
+		TTL:    cfg.JWTTTL,
+	}
+}
+
+func initServices(dbPool *pgxpool.Pool, verificationSender identity.VerificationSender, jwtProvider crypto.JWTProvider) (identity.Service, catalog.Service) {
+	identityRepo := postgres.NewIdentityRepository(dbPool)
+	catalogRepo := postgres.NewCatalogRepository(dbPool)
+
+	codeGenerator := crypto.RandomDigitsGenerator{Length: 6}
+
+	idService := identity.NewService(identity.ServiceDeps{
+		UserRepo:                 identityRepo,
+		RoleRepo:                 identityRepo,
+		PasswordHasher:           crypto.BcryptHasher{},
+		VerificationSender:       verificationSender,
+		VerificationCodeProvider: codeGenerator,
+		TokenProvider:            jwtProvider,
+	})
+
+	catService := catalog.NewService(catalog.ServiceDeps{
+		CategoryRepo: catalogRepo,
+		ProductRepo:  catalogRepo,
+	})
+
+	return idService, catService
+}
+
+func seedAdmin(ctx context.Context, idService identity.Service, cfg config.Config, logr *slog.Logger) {
+	if err := idService.SeedAdmin(ctx, identity.AdminSeedInput{
+		Email:    cfg.AdminSeed.Email,
+		Password: cfg.AdminSeed.Password,
+		FullName: cfg.AdminSeed.FullName,
+	}); err != nil {
+		logr.Warn("admin seed skipped", "error", err)
+	}
+}
+
+func initHTTPServer(cfg config.Config, wsHub *ws.Hub, jwtProvider crypto.JWTProvider, idService identity.Service, catService catalog.Service) *http.Server {
+	eventEmitter := httpapi.NewSocketEmitter(wsHub)
+	catalogHandler := httpapi.NewCatalogHandler(catService, eventEmitter)
+	identityHandler := httpapi.NewIdentityHandler(idService)
+
+	routerFactory := &httpapi.RouterFactory{
+		CatalogHandler:  catalogHandler,
+		IdentityHandler: identityHandler,
+		WSHub:           wsHub,
+		TokenValidator:  httpapi.JWTValidatorAdapter{Provider: jwtProvider},
+	}
+
+	router := routerFactory.Build()
+	return &http.Server{
+		Addr:    ":" + cfg.HTTPPort,
+		Handler: router,
+	}
 }

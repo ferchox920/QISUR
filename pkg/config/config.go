@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"errors"
 )
 
 // AdminSeed contiene las credenciales de arranque para el usuario admin inicial.
@@ -62,6 +64,17 @@ func Load() Config {
 			FullName: envOrDefault("ADMIN_FULL_NAME", "Catalog Admin"),
 		},
 	}
+}
+
+// Validate asegura que existan los parametros criticos de configuracion.
+func (c Config) Validate() error {
+	if c.DatabaseURL == "" {
+		return errors.New("DATABASE_URL is required")
+	}
+	if strings.TrimSpace(c.JWTSecret) == "" {
+		return errors.New("JWT_SECRET is required")
+	}
+	return nil
 }
 
 func envOrDefault(key, fallback string) string {

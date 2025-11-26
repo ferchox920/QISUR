@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"net/http"
 	"strings"
 	"sync"
@@ -93,19 +92,23 @@ func RateLimitMiddleware(limiter *IPRateLimiter) gin.HandlerFunc {
 
 // IPRateLimiter gestiona limitadores por IP.
 type IPRateLimiter struct {
-	limit   rate.Limit
-	burst   int
-	mu      sync.Mutex
-	clients map[string]*clientLimiter
-	ttl     time.Duration
+	limit           rate.Limit
+	burst           int
+	mu              sync.Mutex
+	clients         map[string]*clientLimiter
+	ttl             time.Duration
+	cleanupInterval time.Duration
+	nextCleanup     time.Time
 }
 
 func NewIPRateLimiter(limit rate.Limit, burst int) *IPRateLimiter {
 	return &IPRateLimiter{
-		limit:   limit,
-		burst:   burst,
-		clients: make(map[string]*clientLimiter),
-		ttl:     15 * time.Minute,
+		limit:           limit,
+		burst:           burst,
+		clients:         make(map[string]*clientLimiter),
+		ttl:             15 * time.Minute,
+		cleanupInterval: 5 * time.Minute,
+		nextCleanup:     time.Now().Add(5 * time.Minute),
 	}
 }
 
@@ -114,47 +117,37 @@ type clientLimiter struct {
 	lastUse time.Time
 }
 
-func (l *IPRateLimiter) getLimiter(key string) *rate.Limiter {
+func (l *IPRateLimiter) getLimiter(now time.Time, key string) *rate.Limiter {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if cl, ok := l.clients[key]; ok {
-		cl.lastUse = time.Now()
+		cl.lastUse = now
 		return cl.limiter
 	}
 	limiter := rate.NewLimiter(l.limit, l.burst)
-	l.clients[key] = &clientLimiter{limiter: limiter, lastUse: time.Now()}
+	l.clients[key] = &clientLimiter{limiter: limiter, lastUse: now}
 	return limiter
 }
 
 func (l *IPRateLimiter) Allow(key string) bool {
-	return l.getLimiter(key).Allow()
+	now := time.Now()
+	l.maybeCleanup(now)
+	return l.getLimiter(now, key).Allow()
 }
 
-// StartCleanup arranca una goroutine que purga IPs inactivas para evitar crecimiento sin limite.
-func (l *IPRateLimiter) StartCleanup(ctx context.Context) {
-	ticker := time.NewTicker(l.ttl / 2)
-	go func() {
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				l.cleanupStale()
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-}
-
-func (l *IPRateLimiter) cleanupStale() {
-	cutoff := time.Now().Add(-l.ttl)
+func (l *IPRateLimiter) maybeCleanup(now time.Time) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	if now.Before(l.nextCleanup) {
+		return
+	}
+	cutoff := now.Add(-l.ttl)
 	for key, cl := range l.clients {
 		if cl.lastUse.Before(cutoff) {
 			delete(l.clients, key)
 		}
 	}
+	l.nextCleanup = now.Add(l.cleanupInterval)
 }
 
 // SecurityHeadersMiddleware inyecta cabeceras defensivas basicas.

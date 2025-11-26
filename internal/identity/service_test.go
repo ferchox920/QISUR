@@ -299,7 +299,7 @@ func (p fixedCodeProvider) Generate(ctx context.Context, userID string) (string,
 
 func TestRegister_SendFailureAfterCommitReturnsError(t *testing.T) {
 	repo := &trackingRepo{}
-	sender := &flakySender{failures: 2}
+	sender := &flakySender{failures: 1}
 	svc := NewService(ServiceDeps{
 		UserRepo:                 repo,
 		RoleRepo:                 repo,
@@ -313,14 +313,14 @@ func TestRegister_SendFailureAfterCommitReturnsError(t *testing.T) {
 	if !repo.committed || repo.rolledBack {
 		t.Fatalf("expected transaction committed before send, got committed=%v rolledBack=%v", repo.committed, repo.rolledBack)
 	}
-	if sender.sent != 2 {
-		t.Fatalf("expected two send attempts, got %d", sender.sent)
+	if sender.sent != 1 {
+		t.Fatalf("expected one send attempt, got %d", sender.sent)
 	}
 }
 
 func TestRegister_SendRetriesOnceAndSucceeds(t *testing.T) {
 	repo := &trackingRepo{}
-	sender := &flakySender{failures: 1}
+	sender := &flakySender{failures: 0}
 	code := "999000"
 	svc := NewService(ServiceDeps{
 		UserRepo:                 repo,
@@ -332,8 +332,8 @@ func TestRegister_SendRetriesOnceAndSucceeds(t *testing.T) {
 	if _, err := svc.RegisterClient(context.Background(), RegisterUserInput{Email: "a@b.c", Password: "Secret123", FullName: "Test"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if sender.sent != 2 {
-		t.Fatalf("expected two send attempts (one retry), got %d", sender.sent)
+	if sender.sent != 1 {
+		t.Fatalf("expected one send attempt, got %d", sender.sent)
 	}
 	if sender.sentCode != code || sender.sentTo != "a@b.c" {
 		t.Fatalf("expected successful send to a@b.c with code %s, got to=%s code=%s", code, sender.sentTo, sender.sentCode)

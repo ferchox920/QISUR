@@ -146,10 +146,7 @@ func (s *service) register(ctx context.Context, input RegisterUserInput, role Ro
 			return User{}, err
 		}
 		if err := s.deps.VerificationSender.SendVerification(ctx, created.Email, code); err != nil {
-			// Intento de reenvio inmediato para minimizar fallos transitorios.
-			if retryErr := s.deps.VerificationSender.SendVerification(ctx, created.Email, code); retryErr != nil {
-				return User{}, retryErr
-			}
+			return User{}, err
 		}
 		return created, nil
 	}
@@ -214,11 +211,11 @@ func (s *service) VerifyUser(ctx context.Context, input VerifyUserInput) error {
 	if err != nil {
 		return err
 	}
-	if time.Now().After(expiresAt) {
-		_ = s.deps.UserRepo.DeleteVerificationCode(ctx, input.UserID)
+	if code != input.Code {
 		return ErrInvalidVerificationCode
 	}
-	if code != input.Code {
+	if time.Now().After(expiresAt) {
+		_ = s.deps.UserRepo.DeleteVerificationCode(ctx, input.UserID)
 		return ErrInvalidVerificationCode
 	}
 	if err := s.deps.UserRepo.SetVerification(ctx, input.UserID, true); err != nil {
