@@ -1,143 +1,161 @@
-# QISUR
+# 📦 QISUR Catalog API
 
-API de catalogo e identidad con REST + WebSockets.
+API RESTful y WebSocket de alto rendimiento para la gestión de catálogos e identidad, construida con **Go (Golang)** siguiendo principios de **Arquitectura Limpia (Clean Architecture)**.
 
-## Requisitos
-- Go 1.21+
-- Docker y docker-compose (para base y migraciones)
-- PostgreSQL (si corres sin Docker)
+Este proyecto implementa un sistema robusto para manejar productos, categorías y usuarios, con notificaciones en tiempo real, seguridad avanzada y documentación automática.
 
-## Instalacion y ejecucion
-1. Clonar el repo y configurar el entorno:
-   ```bash
-   cp .env.example .env
-   ```
-2. Levantar base y aplicar migraciones:
-   ```bash
-   docker-compose up -d db
-   psql "postgres://catalog:catalog@localhost:55432/catalog?sslmode=disable" -f migrations/001_init.sql
-   psql "postgres://catalog:catalog@localhost:55432/catalog?sslmode=disable" -f migrations/002_seed_roles.sql
-   psql "postgres://catalog:catalog@localhost:55432/catalog?sslmode=disable" -f migrations/003_update_products.sql
-   psql "postgres://catalog:catalog@localhost:55432/catalog?sslmode=disable" -f migrations/004_verification_codes.sql
-   psql "postgres://catalog:catalog@localhost:55432/catalog?sslmode=disable" -f migrations/005_seed_sample_data.sql
-   ```
-   (O bien con migrate: `docker-compose run --rm -e DATABASE_URL=postgres://catalog:catalog@db:5432/catalog?sslmode=disable migrate -path /migrations -database $env:DATABASE_URL up`)
-3. Ejecutar la API:
-   ```bash
-   go run cmd/catalog-api/main.go
-   ```
-   Swagger UI en `http://localhost:8080/docs` (spec en `http://localhost:8080/swagger/doc.json`).
-   UI de eventos en `http://localhost:8080/events-ui`.
+---
 
-## Configuracion del entorno
-Variables clave (ver `.env.example`):
-- `DATABASE_URL`: URL de Postgres (por defecto `postgres://catalog:catalog@db:5432/catalog?sslmode=disable` en Docker).
-- `HTTP_PORT`: Puerto HTTP (8080 por defecto).
-- `LOG_LEVEL`: Nivel de log (`debug|info|warn|error`, por defecto `info`).
-- `LOG_FORMAT`: Formato de log (`json` por defecto, `text` para desarrollo).
-- SMTP (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`) para envio de verificacion via gomail (TLS oportunista, con `SMTP_TLS_SKIP_VERIFY=true` solo para desarrollo).
-- JWT (`JWT_SECRET`, `JWT_ISSUER`, `JWT_TTL`).
+## 🚀 Características Principales
 
-## Verificacion por email
-- El envio de codigos usa `gopkg.in/gomail.v2` (SMTP). Si faltan `SMTP_HOST` o `SMTP_FROM`, el sender queda deshabilitado y se usa un noop.
-- Para desarrollo sin TLS estricto, habilita `SMTP_TLS_SKIP_VERIFY=true`; en produccion dejar en `false` y usar credenciales reales.
-- El contenido del correo es texto plano con el codigo de verificacion.
+### 🛒 Catálogo & Productos
+- **CRUD Completo:** Gestión de Categorías y Productos.
+- **Búsqueda Avanzada:** Filtrado por texto, paginación y ordenamiento dinámico.
+- **Historial de Precios:** Auditoría automática de cambios en precio y stock (`ProductHistory`).
+- **Relaciones:** Asignación de productos a múltiples categorías.
 
-## WebSockets
-- Endpoint WebSocket nativo en `GET /ws`.
-- Mensajes JSON con forma `{"event": "<nombre>", "data": <payload>}`.
-- Eventos emitidos:
-  - `category.created|updated|deleted`
-  - `product.created|updated|deleted`
-  - `product.category_assigned`
-- Catalogo de eventos: `GET /api/v1/events`.
+### 🔐 Identidad & Seguridad
+- **Autenticación JWT:** Tokens firmados para acceso seguro.
+- **Roles y Permisos:** Sistema RBAC (Admin, User, Client).
+- **Verificación de Email:** Flujo seguro de registro con códigos OTP (con soporte SMTP).
+- **Rate Limiting:** Protección contra ataques DDoS y fuerza bruta (con limpieza de memoria).
+- **Mitigación de Ataques:** Protección contra Timing Attacks en el login.
+- **Security Headers:** Middleware para cabeceras defensivas HTTP.
 
-Ejemplo de cliente (JavaScript):
-```js
-const ws = new WebSocket("ws://localhost:8080/ws");
-ws.onmessage = (evt) => {
-  const { event, data } = JSON.parse(evt.data);
-  if (event === "product.updated") {
-    console.log("Producto actualizado:", data);
+### ⚡ Real-time (WebSockets)
+- Notificaciones instantáneas para clientes conectados cuando ocurren cambios en el catálogo.
+- Gestión eficiente de conexiones con canales y limpieza de recursos.
+- **Eventos:** `product.created`, `product.updated`, `category.deleted`, etc.
+
+### 🛠 Ingeniería & Infraestructura
+- **Base de Datos:** PostgreSQL con `pgx/v5` y pool de conexiones optimizado.
+- **Arquitectura:** Diseño hexagonal (Ports & Adapters) para desacoplar dominio de infraestructura.
+- **Graceful Shutdown:** Manejo correcto de señales del sistema para apagado seguro.
+- **Docker:** Contenerización completa para desarrollo y producción.
+
+---
+
+## 🛠️ Stack Tecnológico
+
+- **Lenguaje:** Go 1.24
+- **Framework Web:** [Gin Gonic](https://github.com/gin-gonic/gin)
+- **Base de Datos:** PostgreSQL
+- **Driver SQL:** [pgx/v5](https://github.com/jackc/pgx)
+- **WebSockets:** [Gorilla WebSocket](https://github.com/gorilla/websocket)
+- **Documentación:** [Swagger (Swaggo)](https://github.com/swaggo/swag)
+- **Autenticación:** [Golang-JWT](https://github.com/golang-jwt/jwt)
+
+---
+
+## ⚙️ Configuración
+
+El proyecto utiliza un archivo `.env` para la configuración. Copia el ejemplo para empezar:
+
+```bash
+cp .env.example .env
+```
+
+### Variables de Entorno
+
+| Variable | Descripción | Valor por Defecto |
+|---|---|---|
+| `HTTP_PORT` | Puerto del servidor | `8080` |
+| `DATABASE_URL` | String de conexión a Postgres | `postgres://...` |
+| `POSTGRES_SSLMODE` | Modo SSL de Postgres | `disable` |
+| `JWT_SECRET` | **Requerido**. Clave para firmar tokens | - |
+| `JWT_ISSUER` | Emisor del token | `catalog-api` |
+| `JWT_TTL` | Duración del token | `15m` |
+| `WS_ALLOWED_ORIGINS`| Orígenes permitidos para WS (CORS) | `*` |
+| `SMTP_HOST` | Host del servidor de correo | - |
+| `SMTP_PORT` | Puerto SMTP | `587` |
+| `SMTP_USERNAME` | Usuario SMTP | - |
+| `SMTP_PASSWORD` | Password SMTP | - |
+| `SMTP_FROM` | Remitente de correos | - |
+| `SMTP_TLS_SKIP_VERIFY` | Saltar verificación TLS (solo dev) | `false` |
+| `ADMIN_EMAIL` | Email para crear admin inicial | - |
+| `ADMIN_PASSWORD` | Password del admin inicial | - |
+| `ADMIN_FULL_NAME` | Nombre del admin inicial | `Catalog Admin` |
+| `WS_ALLOWED_ORIGINS` | Lista de orígenes permitidos WS (coma) | `http://localhost:8080` |
+| `SHUTDOWN_TIMEOUT` | Timeout de apagado elegante | `10s` |
+
+---
+
+## 🏃‍♂️ Cómo Ejecutar
+
+### Opción A: Usando Docker (Recomendado)
+
+Levanta la base de datos y la API automáticamente:
+
+```bash
+docker-compose up --build
+```
+
+### Opción B: Ejecución Local
+
+1) **Levantar Base de Datos:**
+
+```bash
+docker run --name qisur-db -e POSTGRES_PASSWORD=catalog -e POSTGRES_DB=catalog -p 55432:5432 -d postgres:15-alpine
+```
+
+2) **Instalar Dependencias y Correr:**
+
+```bash
+go mod download
+go run cmd/catalog-api/main.go
+```
+
+---
+
+## 📖 Documentación de la API
+
+- **Swagger UI:** `http://localhost:8080/docs/index.html`
+- **Diagrama ER:** `http://localhost:8080/db-schema.puml`
+- **Eventos WebSocket:** `ws://localhost:8080/ws?token=TU_JWT_TOKEN`
+
+### Mensaje de ejemplo WS
+
+```json
+{
+  "event": "product.updated",
+  "data": {
+    "id": "uuid...",
+    "name": "Nuevo Nombre",
+    "price": 1500
   }
-};
+}
 ```
 
-## Ejemplos de uso (REST)
-Registro y autenticacion:
+---
+
+## 📂 Estructura del Proyecto
+
+```text
+.
+├── cmd/
+│   └── catalog-api/    # Punto de entrada (Main)
+├── internal/
+│   ├── catalog/        # Dominio: productos/categorías
+│   ├── identity/       # Dominio: usuarios y auth
+│   ├── http/           # Transporte HTTP: handlers, middleware, router
+│   ├── storage/        # Persistencia: repositorios Postgres
+│   └── ws/             # Transporte WebSocket: Hub
+├── pkg/
+│   ├── config/         # Carga y validación de configuración
+│   ├── crypto/         # JWT, hashing
+│   ├── logger/         # Logs estructurados
+│   └── mailer/         # Cliente SMTP
+├── migrations/         # SQL de inicialización
+└── docs/               # Swagger generado
+```
+
+---
+
+## 🧪 Testing
+
 ```bash
-curl -X POST http://localhost:8080/api/v1/identity/users/client \
-  -H "Content-Type: application/json" \
-  -d '{"email":"client@example.com","password":"password123","full_name":"Cliente Uno"}'
-
-curl -X POST http://localhost:8080/api/v1/identity/users \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"password123","full_name":"Usuario Uno"}'
-
-curl -X POST http://localhost:8080/api/v1/identity/verify \
-  -H "Content-Type: application/json" \
-  -d '{"user_id":"<USER_ID>","code":"<CODE>"}'
-
-curl -X POST http://localhost:8080/api/v1/identity/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user1@example.com","password":"password123"}'
+go test ./... -v
 ```
 
-Categorias:
-```bash
-curl http://localhost:8080/api/v1/categories
-
-curl -X POST http://localhost:8080/api/v1/categories \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Garden","description":"Outdoor and garden"}'
-
-curl -X PUT http://localhost:8080/api/v1/categories/<id> \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Garden 2","description":"Updated"}'
-
-curl -X DELETE http://localhost:8080/api/v1/categories/<id> \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
-Productos:
-```bash
-curl "http://localhost:8080/api/v1/products?limit=20&offset=0"
-
-curl -X POST http://localhost:8080/api/v1/products \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Laptop","description":"Ligera","price":125000,"stock":30}'
-
-curl -X PUT http://localhost:8080/api/v1/products/<id> \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Laptop","description":"Actualizada","price":129000,"stock":25}'
-
-curl -X DELETE http://localhost:8080/api/v1/products/<id> \
-  -H "Authorization: Bearer <TOKEN>"
-
-curl -X POST http://localhost:8080/api/v1/products/<product_id>/categories/<category_id> \
-  -H "Authorization: Bearer <TOKEN>"
-
-curl "http://localhost:8080/api/v1/search?type=product&q=laptop&limit=5"
-
-curl "http://localhost:8080/api/v1/products/<product_id>/history?start=2025-01-01T00:00:00Z&end=2025-12-31T23:59:59Z"
-```
-
-## Pruebas
-- Suite de handlers HTTP (catalogo e identidad) con `gin` + `httptest` para validar codigos de estado, payloads y middleware de auth/roles.
-- Repositorio de catalogo probado con `pgxmock` (paginas, historial de precios/stock, guardrails sin pool) y verificacion de conexion DSN.
-- Ejecutar todo: `go test ./...`
-
-## Sistema de relaciones (DB)
-- `roles` 1:N `users` (cada usuario referencia un rol).
-- `users` 1:1 `verification_codes` (PK compartida, se borra en cascada).
-- `categories` N:M `products` via `product_category` (llaves foraneas con ON DELETE CASCADE).
-- `products` 1:N `product_history` (historial de precio/stock por producto, cascada en borrado).
-- Semillas: `roles` basicos, categorias y productos de ejemplo, usuarios de prueba (password `password123`).
-
-Diagrama ER en PlantUML: `docs/db-schema.puml` (servido en `GET /db-schema.puml`).
-
+---
 

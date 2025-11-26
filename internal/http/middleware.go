@@ -136,6 +136,7 @@ func (l *IPRateLimiter) Allow(key string) bool {
 }
 
 func (l *IPRateLimiter) maybeCleanup(now time.Time) {
+	// purgamos limitadores viejos para evitar fuga de memoria por IPs que no vuelven
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if now.Before(l.nextCleanup) {

@@ -215,7 +215,9 @@ func (s *service) VerifyUser(ctx context.Context, input VerifyUserInput) error {
 		return ErrInvalidVerificationCode
 	}
 	if time.Now().After(expiresAt) {
-		_ = s.deps.UserRepo.DeleteVerificationCode(ctx, input.UserID)
+		if err := s.deps.UserRepo.DeleteVerificationCode(ctx, input.UserID); err != nil {
+			// best-effort; el codigo ya expiro
+		}
 		return ErrInvalidVerificationCode
 	}
 	if err := s.deps.UserRepo.SetVerification(ctx, input.UserID, true); err != nil {

@@ -49,7 +49,7 @@ func bootstrap(ctx context.Context, cfg config.Config, logr *slog.Logger) (*App,
 		return nil, err
 	}
 
-	wsHub := ws.NewHub(cfg.WSAllowedOrigins)
+	wsHub := ws.NewHub(cfg.WSAllowedOrigins, logr)
 
 	verificationSender := initVerificationSender(cfg, logr)
 	jwtProvider := buildJWTProvider(cfg)

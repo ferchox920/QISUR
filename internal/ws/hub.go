@@ -32,12 +32,15 @@ type Hub struct {
 }
 
 // NewHub construye un hub listo para aceptar clientes.
-func NewHub(allowedOrigins []string) *Hub {
+func NewHub(allowedOrigins []string, logr *slog.Logger) *Hub {
 	originSet := make(map[string]struct{}, len(allowedOrigins))
 	for _, o := range allowedOrigins {
 		if host := normalizeOriginHost(o); host != "" {
 			originSet[host] = struct{}{}
 		}
+	}
+	if logr == nil {
+		logr = slog.Default()
 	}
 	h := &Hub{
 		clients:        make(map[*Client]bool),
@@ -45,7 +48,7 @@ func NewHub(allowedOrigins []string) *Hub {
 		unregister:     make(chan *Client),
 		broadcast:      make(chan []byte, 64),
 		allowedOrigins: originSet,
-		logr:           slog.Default(),
+		logr:           logr,
 	}
 	h.upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
@@ -124,6 +127,7 @@ func (h *Hub) Publish(event string, data interface{}) error {
 	select {
 	case h.broadcast <- payload:
 	default:
+		// no bloqueamos peticion, pero avisamos si el buffer esta lleno y se pierde el evento
 		if h.logr != nil {
 			h.logr.Warn("websocket event dropped: broadcast queue full", "event", event)
 		}

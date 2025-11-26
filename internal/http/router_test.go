@@ -43,7 +43,7 @@ func TestRouter_Healthz(t *testing.T) {
 func TestRouter_WebsocketRouteExists(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := (&RouterFactory{
-		WSHub:          ws.NewHub(nil),
+		WSHub:          ws.NewHub(nil, nil),
 		TokenValidator: &stubTokenValidator{},
 	}).Build()
 
@@ -60,7 +60,7 @@ func TestRouter_WebsocketRouteValidatesTokenFromQuery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	validator := &stubTokenValidator{ctx: AuthContext{UserID: "u1"}}
 	router := (&RouterFactory{
-		WSHub:          ws.NewHub(nil),
+		WSHub:          ws.NewHub(nil, nil),
 		TokenValidator: validator,
 	}).Build()
 
