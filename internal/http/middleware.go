@@ -21,16 +21,7 @@ type AuthContext struct {
 // AuthMiddleware autentica peticiones usando bearer tokens.
 func AuthMiddleware(validator TokenValidator) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authz := c.GetHeader("Authorization")
-		if authz == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing bearer token"})
-			return
-		}
-		lower := strings.ToLower(authz)
-		raw := strings.TrimSpace(authz)
-		if strings.HasPrefix(lower, "bearer ") {
-			raw = strings.TrimSpace(authz[7:])
-		}
+		raw := bearerTokenFromHeader(c.Request)
 		if raw == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing bearer token"})
 			return
@@ -45,6 +36,19 @@ func AuthMiddleware(validator TokenValidator) gin.HandlerFunc {
 		c.Set("role", ctx.Role)
 		c.Next()
 	}
+}
+
+func bearerTokenFromHeader(r *http.Request) string {
+	authz := r.Header.Get("Authorization")
+	if authz == "" {
+		return ""
+	}
+	lower := strings.ToLower(authz)
+	raw := strings.TrimSpace(authz)
+	if strings.HasPrefix(lower, "bearer ") {
+		raw = strings.TrimSpace(authz[7:])
+	}
+	return raw
 }
 
 // RoleMiddleware autoriza peticiones segun roles permitidos.

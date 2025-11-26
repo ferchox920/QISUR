@@ -22,6 +22,72 @@ func NewIdentityRepository(pool *pgxpool.Pool) *IdentityRepository {
 	return &IdentityRepository{pool: pool}
 }
 
+type identityTx struct {
+	tx   pgx.Tx
+	done bool
+}
+
+func (t *identityTx) CreateUser(ctx context.Context, user identity.User) (identity.User, error) {
+	query := `
+		INSERT INTO users (email, full_name, password_hash, role, status, is_verified)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, email, full_name, password_hash, role, status, is_verified, created_at, updated_at
+	`
+	row := t.tx.QueryRow(ctx, query,
+		user.Email,
+		user.FullName,
+		user.PasswordHash,
+		user.Role,
+		user.Status,
+		user.IsVerified,
+	)
+	created, err := scanUser(row)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return identity.User{}, identity.ErrEmailAlreadyRegistered
+		}
+		return identity.User{}, err
+	}
+	return created, nil
+}
+
+func (t *identityTx) SaveVerificationCode(ctx context.Context, userID identity.UserID, code string, expiresAt time.Time) error {
+	_, err := t.tx.Exec(ctx, `
+		INSERT INTO verification_codes (user_id, code, expires_at)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (user_id) DO UPDATE SET code = EXCLUDED.code, expires_at = EXCLUDED.expires_at, updated_at = NOW()
+	`, userID, code, expiresAt)
+	return err
+}
+
+func (t *identityTx) Commit(ctx context.Context) error {
+	if t.done {
+		return nil
+	}
+	t.done = true
+	return t.tx.Commit(ctx)
+}
+
+func (t *identityTx) Rollback(ctx context.Context) error {
+	if t.done {
+		return nil
+	}
+	t.done = true
+	return t.tx.Rollback(ctx)
+}
+
+func (r *IdentityRepository) BeginTx(ctx context.Context) (identity.UserTx, error) {
+	if r.pool == nil {
+		return nil, identity.ErrRepositoryNotConfigured
+	}
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return &identityTx{tx: tx}, nil
+}
+
 func (r *IdentityRepository) CreateUser(ctx context.Context, user identity.User) (identity.User, error) {
 	if r.pool == nil {
 		return identity.User{}, identity.ErrRepositoryNotConfigured

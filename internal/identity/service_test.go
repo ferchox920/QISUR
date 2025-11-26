@@ -9,6 +9,9 @@ import (
 
 type stubUserRepo struct{}
 
+type stubTx struct{}
+
+func (stubUserRepo) BeginTx(ctx context.Context) (UserTx, error)             { return &stubTx{}, nil }
 func (stubUserRepo) CreateUser(ctx context.Context, user User) (User, error) { return user, nil }
 func (stubUserRepo) GetByEmail(ctx context.Context, email string) (User, error) {
 	return User{}, ErrUserNotFound
@@ -36,6 +39,13 @@ func (stubUserRepo) GetVerificationCode(ctx context.Context, userID UserID) (str
 }
 func (stubUserRepo) DeleteVerificationCode(ctx context.Context, userID UserID) error { return nil }
 
+func (stubTx) CreateUser(ctx context.Context, user User) (User, error) { return user, nil }
+func (stubTx) SaveVerificationCode(ctx context.Context, userID UserID, code string, expiresAt time.Time) error {
+	return nil
+}
+func (stubTx) Commit(ctx context.Context) error   { return nil }
+func (stubTx) Rollback(ctx context.Context) error { return nil }
+
 func TestRegisterClient_RepoRequired(t *testing.T) {
 	svc := NewService(ServiceDeps{})
 	if _, err := svc.RegisterClient(context.Background(), RegisterUserInput{}); err != ErrRepositoryNotConfigured {
@@ -57,6 +67,79 @@ func TestLogin_NotImplementedWhenHasherOrTokenMissing(t *testing.T) {
 	})
 	if _, err := svc.Login(context.Background(), LoginInput{Email: "a", Password: "b"}); err != ErrNotImplemented {
 		t.Fatalf("expected ErrNotImplemented, got %v", err)
+	}
+}
+
+type loginRepo struct {
+	stubUserRepo
+	user User
+	err  error
+}
+
+func (l loginRepo) GetByEmail(ctx context.Context, email string) (User, error) {
+	if l.err != nil {
+		return User{}, l.err
+	}
+	return l.user, nil
+}
+
+func TestLogin_MasksUserNotFound(t *testing.T) {
+	hasher := &trackingHasher{}
+	svc := NewService(ServiceDeps{
+		UserRepo:       loginRepo{err: ErrUserNotFound},
+		PasswordHasher: hasher,
+		TokenProvider:  stubTokenProvider{token: "tok"},
+	})
+	if _, err := svc.Login(context.Background(), LoginInput{Email: "missing@example.com", Password: "secret"}); err != ErrInvalidCredentials {
+		t.Fatalf("expected ErrInvalidCredentials, got %v", err)
+	}
+	if hasher.compareCount != 1 {
+		t.Fatalf("expected hasher compare to be invoked for timing, got %d", hasher.compareCount)
+	}
+}
+
+func TestLogin_BlockedReturnsGenericError(t *testing.T) {
+	hasher := &trackingHasher{}
+	svc := NewService(ServiceDeps{
+		UserRepo: loginRepo{user: User{
+			Email:        "blocked@example.com",
+			PasswordHash: "hash",
+			Status:       UserStatusBlocked,
+			IsVerified:   true,
+		}},
+		PasswordHasher: hasher,
+		TokenProvider:  stubTokenProvider{token: "tok"},
+	})
+	if _, err := svc.Login(context.Background(), LoginInput{Email: "blocked@example.com", Password: "secret"}); err != ErrInvalidCredentials {
+		t.Fatalf("expected ErrInvalidCredentials for blocked user, got %v", err)
+	}
+	if hasher.compareCount != 1 {
+		t.Fatalf("expected hasher compare to be invoked before status check, got %d", hasher.compareCount)
+	}
+}
+
+func TestLogin_Success(t *testing.T) {
+	hasher := &trackingHasher{}
+	svc := NewService(ServiceDeps{
+		UserRepo: loginRepo{user: User{
+			ID:           "u1",
+			Email:        "user@example.com",
+			PasswordHash: "hash",
+			Status:       UserStatusActive,
+			IsVerified:   true,
+		}},
+		PasswordHasher: hasher,
+		TokenProvider:  stubTokenProvider{token: "tok123"},
+	})
+	token, err := svc.Login(context.Background(), LoginInput{Email: "user@example.com", Password: "secret"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if token.Token != "tok123" {
+		t.Fatalf("expected token tok123, got %s", token.Token)
+	}
+	if hasher.compareCount != 1 {
+		t.Fatalf("expected hasher compare once, got %d", hasher.compareCount)
 	}
 }
 
@@ -148,19 +231,50 @@ func (t *trackingSender) SendVerification(ctx context.Context, email, code strin
 
 type trackingRepo struct {
 	stubUserRepo
-	deleted bool
-	saved   bool
-	code    string
+	saved      bool
+	code       string
+	committed  bool
+	rolledBack bool
+	tx         *trackingTx
 }
 
-func (t *trackingRepo) DeleteUser(ctx context.Context, userID UserID) error {
-	t.deleted = true
+func (t *trackingRepo) BeginTx(ctx context.Context) (UserTx, error) {
+	tx := &trackingTx{repo: t}
+	t.tx = tx
+	return tx, nil
+}
+
+type trackingTx struct {
+	repo *trackingRepo
+	done bool
+}
+
+func (t *trackingTx) CreateUser(ctx context.Context, user User) (User, error) {
+	user.ID = "generated-id"
+	return user, nil
+}
+
+func (t *trackingTx) SaveVerificationCode(ctx context.Context, userID UserID, code string, expiresAt time.Time) error {
+	t.repo.saved = true
+	t.repo.code = code
 	return nil
 }
 
-func (t *trackingRepo) SaveVerificationCode(ctx context.Context, userID UserID, code string, expiresAt time.Time) error {
-	t.saved = true
-	t.code = code
+func (t *trackingTx) Commit(ctx context.Context) error {
+	if t.done {
+		return nil
+	}
+	t.done = true
+	t.repo.committed = true
+	return nil
+}
+
+func (t *trackingTx) Rollback(ctx context.Context) error {
+	if t.done {
+		return nil
+	}
+	t.done = true
+	t.repo.rolledBack = true
 	return nil
 }
 
@@ -185,8 +299,8 @@ func TestRegister_RollsBackOnSendFailure(t *testing.T) {
 	if _, err := svc.RegisterClient(context.Background(), RegisterUserInput{Email: "a@b.c", Password: "secret123", FullName: "Test"}); err == nil {
 		t.Fatalf("expected error due to send failure")
 	}
-	if !repo.deleted {
-		t.Fatalf("expected DeleteUser to be called on rollback")
+	if !repo.rolledBack || repo.committed {
+		t.Fatalf("expected transaction rollback, got committed=%v rolledBack=%v", repo.committed, repo.rolledBack)
 	}
 }
 
@@ -209,6 +323,9 @@ func TestRegister_UsesVerificationSenderWhenConfigured(t *testing.T) {
 	}
 	if !repo.saved || repo.code != code {
 		t.Fatalf("expected verification code to be saved, got saved=%v code=%s", repo.saved, repo.code)
+	}
+	if !repo.committed || repo.rolledBack {
+		t.Fatalf("expected transaction committed, got committed=%v rolledBack=%v", repo.committed, repo.rolledBack)
 	}
 }
 
@@ -237,3 +354,26 @@ type stubHasher struct{}
 
 func (stubHasher) Hash(password string) (string, error) { return "hashed", nil }
 func (stubHasher) Compare(hash, password string) error  { return nil }
+
+type trackingHasher struct {
+	compareCount int
+	compareErr   error
+}
+
+func (t *trackingHasher) Hash(password string) (string, error) { return "hash", nil }
+func (t *trackingHasher) Compare(hash, password string) error {
+	t.compareCount++
+	return t.compareErr
+}
+
+type stubTokenProvider struct {
+	token string
+	err   error
+}
+
+func (s stubTokenProvider) Generate(ctx context.Context, user User) (string, error) {
+	if s.err != nil {
+		return "", s.err
+	}
+	return s.token, nil
+}

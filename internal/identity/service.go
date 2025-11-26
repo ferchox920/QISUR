@@ -2,6 +2,7 @@ package identity
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -83,6 +84,8 @@ type service struct {
 	deps ServiceDeps
 }
 
+const dummyPasswordHash = "$2a$10$7EqJtq98hPqEX7fNZaFWoOHi4bxmC8lzQju0aDY9.6e2cqE8X4Fi."
+
 // NewService construye el servicio de identidad con dependencias inyectadas.
 func NewService(deps ServiceDeps) Service {
 	return &service{deps: deps}
@@ -113,25 +116,36 @@ func (s *service) register(ctx context.Context, input RegisterUserInput, role Ro
 		Status:       UserStatusPendingVerification,
 		IsVerified:   false,
 	}
-	created, err := s.deps.UserRepo.CreateUser(ctx, user)
-	if err != nil {
-		return User{}, err
-	}
 	if s.deps.VerificationCodeProvider != nil && s.deps.VerificationSender != nil {
+		tx, err := s.deps.UserRepo.BeginTx(ctx)
+		if err != nil {
+			return User{}, err
+		}
+		defer tx.Rollback(ctx)
+
+		created, err := tx.CreateUser(ctx, user)
+		if err != nil {
+			return User{}, err
+		}
 		code, err := s.deps.VerificationCodeProvider.Generate(ctx, created.ID)
 		if err != nil {
-			_ = s.deps.UserRepo.DeleteUser(ctx, created.ID)
 			return User{}, err
 		}
 		exp := time.Now().Add(15 * time.Minute)
-		if err := s.deps.UserRepo.SaveVerificationCode(ctx, created.ID, code, exp); err != nil {
-			_ = s.deps.UserRepo.DeleteUser(ctx, created.ID)
+		if err := tx.SaveVerificationCode(ctx, created.ID, code, exp); err != nil {
 			return User{}, err
 		}
 		if err := s.deps.VerificationSender.SendVerification(ctx, created.Email, code); err != nil {
-			_ = s.deps.UserRepo.DeleteUser(ctx, created.ID)
 			return User{}, err
 		}
+		if err := tx.Commit(ctx); err != nil {
+			return User{}, err
+		}
+		return created, nil
+	}
+	created, err := s.deps.UserRepo.CreateUser(ctx, user)
+	if err != nil {
+		return User{}, err
 	}
 	return created, nil
 }
@@ -238,15 +252,16 @@ func (s *service) Login(ctx context.Context, input LoginInput) (AuthToken, error
 	}
 	user, err := s.deps.UserRepo.GetByEmail(ctx, input.Email)
 	if err != nil {
+		s.consumePasswordHash(input.Password)
+		if errors.Is(err, ErrUserNotFound) {
+			return AuthToken{}, ErrInvalidCredentials
+		}
 		return AuthToken{}, err
 	}
-	if user.Status == UserStatusBlocked {
-		return AuthToken{}, ErrUserBlocked
-	}
-	if !user.IsVerified {
-		return AuthToken{}, ErrUserNotVerified
-	}
 	if err := s.deps.PasswordHasher.Compare(user.PasswordHash, input.Password); err != nil {
+		return AuthToken{}, ErrInvalidCredentials
+	}
+	if user.Status == UserStatusBlocked || !user.IsVerified {
 		return AuthToken{}, ErrInvalidCredentials
 	}
 	token, err := s.deps.TokenProvider.Generate(ctx, user)
@@ -254,6 +269,13 @@ func (s *service) Login(ctx context.Context, input LoginInput) (AuthToken, error
 		return AuthToken{}, err
 	}
 	return AuthToken{Token: token}, nil
+}
+
+func (s *service) consumePasswordHash(password string) {
+	if s.deps.PasswordHasher == nil {
+		return
+	}
+	_ = s.deps.PasswordHasher.Compare(dummyPasswordHash, password)
 }
 
 func (s *service) UpdateUser(ctx context.Context, input UpdateUserInput) (User, error) {

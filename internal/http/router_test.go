@@ -38,15 +38,38 @@ func TestRouter_Healthz(t *testing.T) {
 
 func TestRouter_WebsocketRouteExists(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := (&RouterFactory{WSHub: ws.NewHub()}).Build()
+	router := (&RouterFactory{
+		WSHub:          ws.NewHub(nil),
+		TokenValidator: &stubTokenValidator{},
+	}).Build()
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/ws", nil)
 	router.ServeHTTP(w, req)
 
-	// Sin upgrade a websocket debe fallar con 400, probando que la ruta existe.
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for missing token, got %d", w.Code)
+	}
+}
+
+func TestRouter_WebsocketRouteValidatesTokenFromQuery(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	validator := &stubTokenValidator{ctx: AuthContext{UserID: "u1"}}
+	router := (&RouterFactory{
+		WSHub:          ws.NewHub(nil),
+		TokenValidator: validator,
+	}).Build()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ws?token=abc123", nil)
+	router.ServeHTTP(w, req)
+
+	// No upgrade -> 400, pero el token debe validarse antes.
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for non-upgraded request, got %d", w.Code)
+	}
+	if len(validator.tokens) != 1 || validator.tokens[0] != "abc123" {
+		t.Fatalf("expected token to be validated from query param, got %+v", validator.tokens)
 	}
 }
 

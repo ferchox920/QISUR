@@ -28,6 +28,19 @@ func (f *RouterFactory) Build() *gin.Engine {
 
 	if f.WSHub != nil {
 		router.GET("/ws", func(c *gin.Context) {
+			if f.TokenValidator == nil {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing token validator"})
+				return
+			}
+			token := websocketToken(c)
+			if token == "" {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing bearer token"})
+				return
+			}
+			if _, err := f.TokenValidator.Validate(token); err != nil {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+				return
+			}
 			f.WSHub.ServeHTTP(c.Writer, c.Request)
 		})
 	}
@@ -99,4 +112,17 @@ func (f *RouterFactory) Build() *gin.Engine {
 	router.StaticFile("/events-ui", "web/events.html")
 
 	return router
+}
+
+func websocketToken(c *gin.Context) string {
+	if token := c.Query("token"); token != "" {
+		return token
+	}
+	if token := bearerTokenFromHeader(c.Request); token != "" {
+		return token
+	}
+	if token, err := c.Cookie("token"); err == nil && token != "" {
+		return token
+	}
+	return ""
 }

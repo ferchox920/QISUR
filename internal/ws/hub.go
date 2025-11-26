@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -22,23 +24,31 @@ type Hub struct {
 	unregister chan *Client
 	broadcast  chan []byte
 
-	upgrader websocket.Upgrader
+	upgrader       websocket.Upgrader
+	allowedOrigins map[string]struct{}
 }
 
 // NewHub construye un hub listo para aceptar clientes.
-func NewHub() *Hub {
-	return &Hub{
-		clients:    make(map[*Client]bool),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		broadcast:  make(chan []byte, 64),
-		upgrader: websocket.Upgrader{
-			ReadBufferSize:  1024,
-			WriteBufferSize: 1024,
-			// Permitimos todos los origenes por ahora; los frontends igual deben usar auth si hace falta.
-			CheckOrigin: func(r *http.Request) bool { return true },
-		},
+func NewHub(allowedOrigins []string) *Hub {
+	originSet := make(map[string]struct{}, len(allowedOrigins))
+	for _, o := range allowedOrigins {
+		if host := normalizeOriginHost(o); host != "" {
+			originSet[host] = struct{}{}
+		}
 	}
+	h := &Hub{
+		clients:        make(map[*Client]bool),
+		register:       make(chan *Client),
+		unregister:     make(chan *Client),
+		broadcast:      make(chan []byte, 64),
+		allowedOrigins: originSet,
+	}
+	h.upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin:     h.checkOrigin,
+	}
+	return h
 }
 
 // Run procesa el ciclo de vida de clientes y difunde eventos hasta que el contexto se cancele.
@@ -122,4 +132,35 @@ func (h *Hub) shutdownClients() {
 		_ = client.conn.Close()
 		delete(h.clients, client)
 	}
+}
+
+func (h *Hub) checkOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		// solicitudes sin origen (CLI/servicios) son aceptadas; el control principal es auth.
+		return true
+	}
+	originHost := normalizeOriginHost(origin)
+	if originHost == "" {
+		return false
+	}
+	reqHost := strings.ToLower(r.Host)
+	if originHost == reqHost {
+		return true
+	}
+	if _, ok := h.allowedOrigins[originHost]; ok {
+		return true
+	}
+	return false
+}
+
+func normalizeOriginHost(origin string) string {
+	if origin == "" {
+		return ""
+	}
+	u, err := url.Parse(origin)
+	if err == nil && u.Host != "" {
+		return strings.ToLower(u.Host)
+	}
+	return strings.ToLower(origin)
 }

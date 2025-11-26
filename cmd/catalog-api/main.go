@@ -41,7 +41,7 @@ func bootstrap(ctx context.Context) (*pgxpool.Pool, *httpapi.IdentityHandler, *h
 		return nil, nil, nil, nil, err
 	}
 
-	wsHub := ws.NewHub()
+	wsHub := ws.NewHub(cfg.WSAllowedOrigins)
 	go wsHub.Run(ctx)
 	eventEmitter := httpapi.NewSocketEmitter(wsHub)
 

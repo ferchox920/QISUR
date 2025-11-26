@@ -15,6 +15,7 @@ type pgxPool interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
 }
 
 // CatalogRepository implementa repositorios de catalogo sobre Postgres.
@@ -220,14 +221,20 @@ func (r *CatalogRepository) UpdateProduct(ctx context.Context, p catalog.Product
 	if r.pool == nil {
 		return catalog.Product{}, catalog.ErrRepositoryNotConfigured
 	}
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return catalog.Product{}, err
+	}
+	defer tx.Rollback(ctx)
+
 	var original struct {
 		Price int64
 		Stock int64
 	}
-	if err := r.pool.QueryRow(ctx, `SELECT price::bigint, stock FROM products WHERE id = $1`, p.ID).Scan(&original.Price, &original.Stock); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT price::bigint, stock FROM products WHERE id = $1 FOR UPDATE`, p.ID).Scan(&original.Price, &original.Stock); err != nil {
 		return catalog.Product{}, err
 	}
-	row := r.pool.QueryRow(ctx, `
+	row := tx.QueryRow(ctx, `
 		UPDATE products
 		SET name = $1, description = $2, price = $3, stock = $4, updated_at = NOW()
 		WHERE id = $5
@@ -239,10 +246,15 @@ func (r *CatalogRepository) UpdateProduct(ctx context.Context, p catalog.Product
 	}
 	// Guarda historial solo cuando cambia precio o stock.
 	if original.Price != out.Price || original.Stock != out.Stock {
-		_, _ = r.pool.Exec(ctx, `
+		if _, err := tx.Exec(ctx, `
 			INSERT INTO product_history (product_id, price, stock)
 			VALUES ($1, $2, $3)
-		`, out.ID, out.Price, out.Stock)
+		`, out.ID, out.Price, out.Stock); err != nil {
+			return catalog.Product{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return catalog.Product{}, err
 	}
 	return out, nil
 }

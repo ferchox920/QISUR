@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -16,13 +17,14 @@ type AdminSeed struct {
 
 // Config centraliza la configuracion de runtime.
 type Config struct {
-	HTTPPort    string
-	DatabaseURL string
-	AdminSeed   AdminSeed
-	SMTP        SMTPConfig
-	JWTSecret   string
-	JWTIssuer   string
-	JWTTTL      time.Duration
+	HTTPPort         string
+	DatabaseURL      string
+	AdminSeed        AdminSeed
+	SMTP             SMTPConfig
+	JWTSecret        string
+	JWTIssuer        string
+	JWTTTL           time.Duration
+	WSAllowedOrigins []string
 }
 
 // SMTPConfig contiene las credenciales SMTP para el envio de correo.
@@ -38,11 +40,12 @@ type SMTPConfig struct {
 // Load lee configuracion desde variables de entorno con valores por defecto.
 func Load() Config {
 	return Config{
-		HTTPPort:    envOrDefault("HTTP_PORT", "8080"),
-		DatabaseURL: envOrDefault("DATABASE_URL", defaultDatabaseURL()),
-		JWTSecret:   os.Getenv("JWT_SECRET"),
-		JWTIssuer:   envOrDefault("JWT_ISSUER", "catalog-api"),
-		JWTTTL:      durationOrDefault("JWT_TTL", 15*time.Minute),
+		HTTPPort:         envOrDefault("HTTP_PORT", "8080"),
+		DatabaseURL:      envOrDefault("DATABASE_URL", defaultDatabaseURL()),
+		JWTSecret:        os.Getenv("JWT_SECRET"),
+		JWTIssuer:        envOrDefault("JWT_ISSUER", "catalog-api"),
+		JWTTTL:           durationOrDefault("JWT_TTL", 15*time.Minute),
+		WSAllowedOrigins: splitAndTrim(os.Getenv("WS_ALLOWED_ORIGINS")),
 		SMTP: SMTPConfig{
 			Host:     os.Getenv("SMTP_HOST"),
 			Port:     intOrDefault("SMTP_PORT", 587),
@@ -103,4 +106,18 @@ func boolOrDefault(key string, fallback bool) bool {
 		}
 	}
 	return fallback
+}
+
+func splitAndTrim(val string) []string {
+	if val == "" {
+		return nil
+	}
+	parts := strings.Split(val, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if trimmed := strings.TrimSpace(p); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
 }

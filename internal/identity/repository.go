@@ -7,6 +7,8 @@ import (
 
 // UserRepository define los contratos de persistencia para usuarios.
 type UserRepository interface {
+	// BeginTx arranca una transaccion para operaciones de identidad.
+	BeginTx(ctx context.Context) (UserTx, error)
 	CreateUser(ctx context.Context, user User) (User, error)
 	GetByEmail(ctx context.Context, email string) (User, error)
 	GetByID(ctx context.Context, id UserID) (User, error)
@@ -17,6 +19,14 @@ type UserRepository interface {
 	SaveVerificationCode(ctx context.Context, userID UserID, code string, expiresAt time.Time) error
 	GetVerificationCode(ctx context.Context, userID UserID) (code string, expiresAt time.Time, err error)
 	DeleteVerificationCode(ctx context.Context, userID UserID) error
+}
+
+// UserTx define las operaciones necesarias dentro de una transaccion de usuarios.
+type UserTx interface {
+	CreateUser(ctx context.Context, user User) (User, error)
+	SaveVerificationCode(ctx context.Context, userID UserID, code string, expiresAt time.Time) error
+	Commit(ctx context.Context) error
+	Rollback(ctx context.Context) error
 }
 
 // RoleRepository define contratos para gestionar roles.

@@ -42,7 +42,7 @@ func TestCatalogEventsPayloads(t *testing.T) {
 func TestSocketEmitter_Broadcast(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	hub := ws.NewHub()
+	hub := ws.NewHub(nil)
 	go hub.Run(ctx)
 
 	emitter := NewSocketEmitter(hub)

@@ -52,7 +52,8 @@ func TestCatalogRepository_UpdateProductRecordsHistoryOnChange(t *testing.T) {
 	}
 	defer mock.Close()
 
-	mock.ExpectQuery(`SELECT price::bigint, stock FROM products WHERE id = \$1`).
+	mock.ExpectBegin()
+	mock.ExpectQuery(`SELECT price::bigint, stock FROM products WHERE id = \$1 FOR UPDATE`).
 		WithArgs("p1").
 		WillReturnRows(pgxmock.NewRows([]string{"price", "stock"}).AddRow(int64(10), int64(5)))
 
@@ -64,6 +65,7 @@ func TestCatalogRepository_UpdateProductRecordsHistoryOnChange(t *testing.T) {
 	mock.ExpectExec(`INSERT INTO product_history \(product_id, price, stock\)\s+VALUES \(\$1, \$2, \$3\)`).
 		WithArgs("p1", int64(12), int64(3)).
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
+	mock.ExpectCommit()
 
 	repo := &CatalogRepository{pool: mock}
 	updated, err := repo.UpdateProduct(ctx, catalog.Product{
@@ -78,6 +80,44 @@ func TestCatalogRepository_UpdateProductRecordsHistoryOnChange(t *testing.T) {
 	}
 	if updated.Price != 12 || updated.Stock != 3 {
 		t.Fatalf("unexpected product %+v", updated)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestCatalogRepository_UpdateProductRollsBackOnHistoryFailure(t *testing.T) {
+	ctx := context.Background()
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create pgxmock: %v", err)
+	}
+	defer mock.Close()
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(`SELECT price::bigint, stock FROM products WHERE id = \$1 FOR UPDATE`).
+		WithArgs("p1").
+		WillReturnRows(pgxmock.NewRows([]string{"price", "stock"}).AddRow(int64(10), int64(5)))
+
+	mock.ExpectQuery(`UPDATE products\s+SET name = \$1, description = \$2, price = \$3, stock = \$4, updated_at = NOW\(\)\s+WHERE id = \$5\s+RETURNING id, name, description, price::bigint, stock, created_at, updated_at`).
+		WithArgs("Pen", "Red", int64(12), int64(3), "p1").
+		WillReturnRows(pgxmock.NewRows([]string{"id", "name", "description", "price", "stock", "created_at", "updated_at"}).
+			AddRow("p1", "Pen", "Red", int64(12), int64(3), time.Now(), time.Now()))
+
+	mock.ExpectExec(`INSERT INTO product_history \(product_id, price, stock\)\s+VALUES \(\$1, \$2, \$3\)`).
+		WithArgs("p1", int64(12), int64(3)).
+		WillReturnError(errors.New("history fail"))
+	mock.ExpectRollback()
+
+	repo := &CatalogRepository{pool: mock}
+	if _, err := repo.UpdateProduct(ctx, catalog.Product{
+		ID:          "p1",
+		Name:        "Pen",
+		Description: "Red",
+		Price:       12,
+		Stock:       3,
+	}); err == nil {
+		t.Fatalf("expected error when history insert fails")
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
