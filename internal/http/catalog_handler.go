@@ -239,6 +239,24 @@ func (h *CatalogHandler) DeleteProduct(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// AddProductCategory godoc
+// @Summary Relate product to category
+// @Tags Products
+// @Param id path string true "Product ID"
+// @Param categoryId path string true "Category ID"
+// @Success 204
+// @Security BearerAuth
+// @Router /products/{id}/categories/{categoryId} [post]
+func (h *CatalogHandler) AddProductCategory(c *gin.Context) {
+	productID := c.Param("id")
+	categoryID := c.Param("categoryId")
+	if err := h.svc.AssignProductCategory(c.Request.Context(), productID, categoryID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
 // Search allows querying products or categories with pagination and sorting.
 func (h *CatalogHandler) Search(c *gin.Context) {
 	kind := c.Query("type")

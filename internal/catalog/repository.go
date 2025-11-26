@@ -23,6 +23,7 @@ type ProductRepository interface {
 	UpdateProduct(ctx context.Context, p Product) (Product, error)
 	DeleteProduct(ctx context.Context, id string) error
 	ListProductHistory(ctx context.Context, id string, filter ProductHistoryFilter) ([]ProductHistory, error)
+	AssignProductCategory(ctx context.Context, productID, categoryID string) error
 }
 
 // ProductFilter supports pagination and future filtering.

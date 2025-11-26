@@ -21,7 +21,7 @@ services:
       - ./migrations:/migrations
     command: [
       "-path", "/migrations",
-      "-database", "${DATABASE_URL}",
+      "-database", "${DATABASE_URL:-postgres://catalog:catalog@db:5432/catalog?sslmode=disable}",
       "up"
     ]
     restart: "no"
@@ -34,7 +34,7 @@ services:
       - migrate
     environment:
       HTTP_PORT: ${HTTP_PORT:-8080}
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: ${DATABASE_URL:-postgres://catalog:catalog@db:5432/catalog?sslmode=disable}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
       ADMIN_FULL_NAME: ${ADMIN_FULL_NAME:-Catalog Admin}

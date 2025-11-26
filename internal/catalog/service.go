@@ -15,6 +15,7 @@ type Service interface {
 	DeleteProduct(ctx context.Context, id string) error
 	Search(ctx context.Context, filter SearchFilter) (SearchResult, error)
 	GetProductHistory(ctx context.Context, id string, filter ProductHistoryFilter) ([]ProductHistory, error)
+	AssignProductCategory(ctx context.Context, productID, categoryID string) error
 }
 
 // CreateCategoryInput captures creation fields.
@@ -203,6 +204,19 @@ func (s *service) GetProductHistory(ctx context.Context, id string, filter Produ
 		return nil, ErrInvalidProduct
 	}
 	return s.deps.ProductRepo.ListProductHistory(ctx, id, filter)
+}
+
+func (s *service) AssignProductCategory(ctx context.Context, productID, categoryID string) error {
+	if s.deps.ProductRepo == nil {
+		return ErrRepositoryNotConfigured
+	}
+	if productID == "" {
+		return ErrInvalidProductID
+	}
+	if categoryID == "" {
+		return ErrInvalidCategoryID
+	}
+	return s.deps.ProductRepo.AssignProductCategory(ctx, productID, categoryID)
 }
 
 // Search handles combined search for products or categories.

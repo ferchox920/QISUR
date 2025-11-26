@@ -758,3 +758,24 @@ securityDefinitions:
     name: Authorization
     type: apiKey
 swagger: "2.0"
+  /products/{id}/categories/{categoryId}:
+    post:
+      security:
+      - BearerAuth: []
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Category ID
+        in: path
+        name: categoryId
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      summary: Relate product to category
+      tags:
+      - Products

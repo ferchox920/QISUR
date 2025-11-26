@@ -247,45 +247,45 @@
                                                           }
                                              },
                   "/identity/users/me":  {
-                                                "put":  {
-                                                            "security":  [
-                                                                             {
-                                                                                 "BearerAuth":  [
+                                             "put":  {
+                                                         "security":  [
+                                                                          {
+                                                                              "BearerAuth":  [
 
-                                                                                               ]
+                                                                                             ]
+                                                                          }
+                                                                      ],
+                                                         "consumes":  [
+                                                                          "application/json"
+                                                                      ],
+                                                         "produces":  [
+                                                                          "application/json"
+                                                                      ],
+                                                         "tags":  [
+                                                                      "Identity"
+                                                                  ],
+                                                         "summary":  "Update user profile (no role change)",
+                                                         "parameters":  [
+                                                                            {
+                                                                                "description":  "User update payload",
+                                                                                "name":  "body",
+                                                                                "in":  "body",
+                                                                                "required":  true,
+                                                                                "schema":  {
+                                                                                               "$ref":  "#/definitions/catalog-api_internal_http.UpdateUserRequest"
+                                                                                           }
                                                                             }
                                                                         ],
-                                                           "consumes":  [
-                                                                            "application/json"
-                                                                        ],
-                                                           "produces":  [
-                                                                            "application/json"
-                                                                        ],
-                                                           "tags":  [
-                                                                        "Identity"
-                                                                    ],
-                                                            "summary":  "Update user profile (no role change)",
-                                                            "parameters":  [
-                                                                                {
-                                                                                    "description":  "User update payload",
-                                                                                    "name":  "body",
-                                                                                    "in":  "body",
-                                                                                  "required":  true,
-                                                                                  "schema":  {
-                                                                                                 "$ref":  "#/definitions/catalog-api_internal_http.UpdateUserRequest"
-                                                                                             }
-                                                                              }
-                                                                          ],
-                                                           "responses":  {
-                                                                             "200":  {
-                                                                                         "description":  "OK",
-                                                                                         "schema":  {
-                                                                                                        "$ref":  "#/definitions/catalog-api_internal_http.IdentityResponse"
-                                                                                                    }
-                                                                                     }
-                                                                         }
-                                                       }
-                                           },
+                                                         "responses":  {
+                                                                           "200":  {
+                                                                                       "description":  "OK",
+                                                                                       "schema":  {
+                                                                                                      "$ref":  "#/definitions/catalog-api_internal_http.IdentityResponse"
+                                                                                                  }
+                                                                                   }
+                                                                       }
+                                                     }
+                                         },
                   "/identity/users/{id}/block":  {
                                                      "post":  {
                                                                   "security":  [
@@ -683,7 +683,43 @@
                                                                         }
                                                             }
                                           }
-                              }
+                              },
+                  "/products/{id}/categories/{categoryId}":  {
+                                                                 "post":  {
+                                                                              "security":  [
+                                                                                               {
+                                                                                                   "BearerAuth":  [
+
+                                                                                                                  ]
+                                                                                               }
+                                                                                           ],
+                                                                              "parameters":  [
+                                                                                                 {
+                                                                                                     "description":  "Product ID",
+                                                                                                     "name":  "id",
+                                                                                                     "in":  "path",
+                                                                                                     "type":  "string",
+                                                                                                     "required":  true
+                                                                                                 },
+                                                                                                 {
+                                                                                                     "description":  "Category ID",
+                                                                                                     "name":  "categoryId",
+                                                                                                     "in":  "path",
+                                                                                                     "type":  "string",
+                                                                                                     "required":  true
+                                                                                                 }
+                                                                                             ],
+                                                                              "responses":  {
+                                                                                                "204":  {
+                                                                                                            "description":  "No Content"
+                                                                                                        }
+                                                                                            },
+                                                                              "summary":  "Relate product to category",
+                                                                              "tags":  [
+                                                                                           "Products"
+                                                                                       ]
+                                                                          }
+                                                             }
               },
     "definitions":  {
                         "catalog-api_internal_http.BlockUserRequest":  {

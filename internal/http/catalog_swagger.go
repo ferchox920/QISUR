@@ -91,6 +91,16 @@ func UpdateProductDoc() {}
 // @Router /products/{id} [delete]
 func DeleteProductDoc() {}
 
+// AddProductCategoryDoc godoc
+// @Summary Relate product to category
+// @Tags Products
+// @Param id path string true "Product ID"
+// @Param categoryId path string true "Category ID"
+// @Success 204
+// @Security BearerAuth
+// @Router /products/{id}/categories/{categoryId} [post]
+func AddProductCategoryDoc() {}
+
 // ProductHistoryDoc godoc
 // @Summary Product history
 // @Tags Products

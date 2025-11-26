@@ -179,6 +179,10 @@ func (stubProductRepo) ListProductHistory(ctx context.Context, id string, filter
 	return nil, nil
 }
 
+func (stubProductRepo) AssignProductCategory(ctx context.Context, productID, categoryID string) error {
+	return nil
+}
+
 func TestSearch_InvalidKind(t *testing.T) {
 	svc := NewService(ServiceDeps{CategoryRepo: newStubRepo(), ProductRepo: stubProductRepo{}})
 	if _, err := svc.Search(context.Background(), SearchFilter{Kind: "unknown"}); !errors.Is(err, ErrInvalidSearchKind) {

@@ -566,6 +566,40 @@ const docTemplate = `{
         },
         "/products/{id}/history": {
             "get": {
+        "/products/{id}/categories/{categoryId}": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Product ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Category ID",
+                        "name": "categoryId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                },
+                "summary": "Relate product to category",
+                "tags": [
+                    "Products"
+                ]
+            }
+        },
                 "produces": [
                     "application/json"
                 ],

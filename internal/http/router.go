@@ -56,6 +56,7 @@ func (f *RouterFactory) Build() *gin.Engine {
 			adminProd.POST("", f.CatalogHandler.CreateProduct)
 			adminProd.PUT("/:id", f.CatalogHandler.UpdateProduct)
 			adminProd.DELETE("/:id", f.CatalogHandler.DeleteProduct)
+			adminProd.POST("/:id/categories/:categoryId", f.CatalogHandler.AddProductCategory)
 		}
 
 		api.GET("/search", f.CatalogHandler.Search)
@@ -82,7 +83,11 @@ func (f *RouterFactory) Build() *gin.Engine {
 		adminProtected.PUT("/users/:id/role", f.IdentityHandler.UpdateUserRole)
 	}
 
-	swaggerURL := ginSwagger.URL("/docs/doc.json")
+	// Serve swagger spec from local file to avoid stale builds.
+	router.GET("/swagger/doc.json", func(c *gin.Context) {
+		c.File("docs/swagger/swagger.json")
+	})
+	swaggerURL := ginSwagger.URL("/swagger/doc.json")
 	router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, swaggerURL, ginSwagger.InstanceName("swagger")))
 
 	return router
