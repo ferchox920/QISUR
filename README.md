@@ -13,6 +13,7 @@ Este proyecto implementa un sistema robusto para manejar productos, categorías 
 - **Búsqueda Avanzada:** Filtrado por texto, paginación y ordenamiento dinámico.
 - **Historial de Precios:** Auditoría automática de cambios en precio y stock (`ProductHistory`).
 - **Relaciones:** Asignación de productos a múltiples categorías.
+- **Tabla de relación:** `product_category` implementa la relación muchos-a-muchos entre productos y categorías.
 
 ### 🔐 Identidad & Seguridad
 - **Autenticación JWT:** Tokens firmados para acceso seguro.
