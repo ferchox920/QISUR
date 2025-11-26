@@ -14,6 +14,7 @@ Este proyecto implementa un sistema robusto para manejar productos, categorías 
 - **Historial de Precios:** Auditoría automática de cambios en precio y stock (`ProductHistory`).
 - **Relaciones:** Asignación de productos a múltiples categorías.
 - **Tabla de relación:** `product_category` implementa la relación muchos-a-muchos entre productos y categorías.
+  > Nota: La columna `category_id` definida en la migración inicial se elimina en migraciones posteriores; la relación efectiva es M:N vía `product_category`.
 
 ### 🔐 Identidad & Seguridad
 - **Autenticación JWT:** Tokens firmados para acceso seguro.
