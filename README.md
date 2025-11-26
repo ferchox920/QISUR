@@ -10,7 +10,7 @@ API de catálogo e identidad con REST + WebSockets.
 ## Instalación y ejecución
 1. Clonar el repo y configurar el entorno:
    ```bash
-   cp .env.example .env  # ajusta credenciales si es necesario
+   .env.example .env 
    ```
 2. Levantar base y aplicar migraciones:
    ```bash
