@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -83,6 +84,7 @@ func (f *RouterFactory) Build() *gin.Engine {
 	if f.IdentityHandler != nil {
 		identityGroup := api.Group("/identity")
 		identityLimiter := NewIPRateLimiter(rate.Every(time.Minute/5), 5)
+		identityLimiter.StartCleanup(context.Background())
 		identityGroup.Use(RateLimitMiddleware(identityLimiter))
 		identityGroup.POST("/users/client", f.IdentityHandler.RegisterClient)
 		identityGroup.POST("/users", f.IdentityHandler.RegisterUser)

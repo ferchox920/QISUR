@@ -1,9 +1,11 @@
 package http
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
@@ -94,30 +96,65 @@ type IPRateLimiter struct {
 	limit   rate.Limit
 	burst   int
 	mu      sync.Mutex
-	clients map[string]*rate.Limiter
+	clients map[string]*clientLimiter
+	ttl     time.Duration
 }
 
 func NewIPRateLimiter(limit rate.Limit, burst int) *IPRateLimiter {
 	return &IPRateLimiter{
 		limit:   limit,
 		burst:   burst,
-		clients: make(map[string]*rate.Limiter),
+		clients: make(map[string]*clientLimiter),
+		ttl:     15 * time.Minute,
 	}
+}
+
+type clientLimiter struct {
+	limiter *rate.Limiter
+	lastUse time.Time
 }
 
 func (l *IPRateLimiter) getLimiter(key string) *rate.Limiter {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if limiter, ok := l.clients[key]; ok {
-		return limiter
+	if cl, ok := l.clients[key]; ok {
+		cl.lastUse = time.Now()
+		return cl.limiter
 	}
 	limiter := rate.NewLimiter(l.limit, l.burst)
-	l.clients[key] = limiter
+	l.clients[key] = &clientLimiter{limiter: limiter, lastUse: time.Now()}
 	return limiter
 }
 
 func (l *IPRateLimiter) Allow(key string) bool {
 	return l.getLimiter(key).Allow()
+}
+
+// StartCleanup arranca una goroutine que purga IPs inactivas para evitar crecimiento sin limite.
+func (l *IPRateLimiter) StartCleanup(ctx context.Context) {
+	ticker := time.NewTicker(l.ttl / 2)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				l.cleanupStale()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+}
+
+func (l *IPRateLimiter) cleanupStale() {
+	cutoff := time.Now().Add(-l.ttl)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for key, cl := range l.clients {
+		if cl.lastUse.Before(cutoff) {
+			delete(l.clients, key)
+		}
+	}
 }
 
 // SecurityHeadersMiddleware inyecta cabeceras defensivas basicas.

@@ -216,18 +216,6 @@ func (s *service) VerifyUser(ctx context.Context, input VerifyUserInput) error {
 	}
 	if time.Now().After(expiresAt) {
 		_ = s.deps.UserRepo.DeleteVerificationCode(ctx, input.UserID)
-		// reenviar un codigo nuevo
-		if s.deps.VerificationCodeProvider != nil && s.deps.VerificationSender != nil {
-			newCode, genErr := s.deps.VerificationCodeProvider.Generate(ctx, string(input.UserID))
-			if genErr == nil {
-				exp := time.Now().Add(15 * time.Minute)
-				if saveErr := s.deps.UserRepo.SaveVerificationCode(ctx, input.UserID, newCode, exp); saveErr == nil {
-					if user, userErr := s.deps.UserRepo.GetByID(ctx, input.UserID); userErr == nil {
-						_ = s.deps.VerificationSender.SendVerification(ctx, user.Email, newCode)
-					}
-				}
-			}
-		}
 		return ErrInvalidVerificationCode
 	}
 	if code != input.Code {

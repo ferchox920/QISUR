@@ -208,12 +208,8 @@ func TestVerifyUser_InvalidCode(t *testing.T) {
 
 func TestVerifyUser_ExpiredCode(t *testing.T) {
 	repo := &codeRepo{code: "123456", expires: time.Now().Add(-time.Minute), email: "a@b.c"}
-	sender := &trackingSender{}
-	newCode := "999888"
 	svc := NewService(ServiceDeps{
-		UserRepo:                 repo,
-		VerificationCodeProvider: fixedCodeProvider{code: newCode},
-		VerificationSender:       sender,
+		UserRepo: repo,
 	})
 	if err := svc.VerifyUser(context.Background(), VerifyUserInput{UserID: "id", Code: "123456"}); err != ErrInvalidVerificationCode {
 		t.Fatalf("expected ErrInvalidVerificationCode for expired code, got %v", err)
@@ -221,11 +217,8 @@ func TestVerifyUser_ExpiredCode(t *testing.T) {
 	if !repo.deleted {
 		t.Fatalf("expected DeleteVerificationCode to be called on expiration")
 	}
-	if !repo.saved || repo.savedCode != newCode {
-		t.Fatalf("expected new code to be saved on expiration, saved=%v code=%s", repo.saved, repo.savedCode)
-	}
-	if sender.sentCode != newCode || sender.sentTo != "a@b.c" {
-		t.Fatalf("expected resend of new code, got to=%s code=%s", sender.sentTo, sender.sentCode)
+	if repo.saved {
+		t.Fatalf("did not expect new code to be saved automatically")
 	}
 }
 

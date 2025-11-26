@@ -3,6 +3,8 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -26,6 +28,7 @@ type Hub struct {
 
 	upgrader       websocket.Upgrader
 	allowedOrigins map[string]struct{}
+	logr           *slog.Logger
 }
 
 // NewHub construye un hub listo para aceptar clientes.
@@ -42,6 +45,7 @@ func NewHub(allowedOrigins []string) *Hub {
 		unregister:     make(chan *Client),
 		broadcast:      make(chan []byte, 64),
 		allowedOrigins: originSet,
+		logr:           slog.Default(),
 	}
 	h.upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
@@ -120,7 +124,10 @@ func (h *Hub) Publish(event string, data interface{}) error {
 	select {
 	case h.broadcast <- payload:
 	default:
-		// evitar bloquear el handler de la API; los buffers de clientes estan llenos
+		if h.logr != nil {
+			h.logr.Warn("websocket event dropped: broadcast queue full", "event", event)
+		}
+		return errors.New("broadcast queue full")
 	}
 	return nil
 }
