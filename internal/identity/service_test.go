@@ -82,7 +82,7 @@ func TestRegister_EnforcesPasswordPolicy(t *testing.T) {
 	if _, err := svc.RegisterClient(context.Background(), RegisterUserInput{Email: "a@b.c", Password: "alllowercase1", FullName: "Test"}); err == nil {
 		t.Fatalf("expected error for weak password")
 	}
-	if _, err := svc.RegisterClient(context.Background(), RegisterUserInput{Email: "a@b.c", Password: "Strong123", FullName: "Test"}); err != nil {
+	if _, err := svc.RegisterClient(context.Background(), RegisterUserInput{Email: "a@b.c", Password: "Strong123!", FullName: "Test"}); err != nil {
 		t.Fatalf("unexpected error for strong password: %v", err)
 	}
 }
@@ -307,7 +307,7 @@ func TestRegister_SendFailureAfterCommitReturnsError(t *testing.T) {
 		VerificationCodeProvider: fixedCodeProvider{code: "123456"},
 		VerificationSender:       sender,
 	})
-	if _, err := svc.RegisterClient(context.Background(), RegisterUserInput{Email: "a@b.c", Password: "Secret123", FullName: "Test"}); err == nil {
+	if _, err := svc.RegisterClient(context.Background(), RegisterUserInput{Email: "a@b.c", Password: "Secret123!", FullName: "Test"}); err == nil {
 		t.Fatalf("expected error due to send failure")
 	}
 	if !repo.committed || repo.rolledBack {
@@ -329,7 +329,7 @@ func TestRegister_SendRetriesOnceAndSucceeds(t *testing.T) {
 		VerificationCodeProvider: fixedCodeProvider{code: code},
 		VerificationSender:       sender,
 	})
-	if _, err := svc.RegisterClient(context.Background(), RegisterUserInput{Email: "a@b.c", Password: "Secret123", FullName: "Test"}); err != nil {
+	if _, err := svc.RegisterClient(context.Background(), RegisterUserInput{Email: "a@b.c", Password: "Secret123!", FullName: "Test"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if sender.sent != 1 {
@@ -354,7 +354,7 @@ func TestRegister_UsesVerificationSenderWhenConfigured(t *testing.T) {
 		VerificationCodeProvider: fixedCodeProvider{code: code},
 		VerificationSender:       sender,
 	})
-	if _, err := svc.RegisterClient(context.Background(), RegisterUserInput{Email: "a@b.c", Password: "Secret123", FullName: "Test"}); err != nil {
+	if _, err := svc.RegisterClient(context.Background(), RegisterUserInput{Email: "a@b.c", Password: "Secret123!", FullName: "Test"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if sender.sentTo != "a@b.c" || sender.sentCode != code {

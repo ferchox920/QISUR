@@ -54,6 +54,7 @@ func NewHub(allowedOrigins []string, logr *slog.Logger) *Hub {
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 		CheckOrigin:     h.checkOrigin,
+		Subprotocols:    []string{"ws-token"},
 	}
 	return h
 }

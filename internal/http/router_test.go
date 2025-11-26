@@ -56,7 +56,7 @@ func TestRouter_WebsocketRouteExists(t *testing.T) {
 	}
 }
 
-func TestRouter_WebsocketRouteValidatesTokenFromQuery(t *testing.T) {
+func TestRouter_WebsocketRouteValidatesTokenFromProtocolHeader(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	validator := &stubTokenValidator{ctx: AuthContext{UserID: "u1"}}
 	router := (&RouterFactory{
@@ -65,7 +65,8 @@ func TestRouter_WebsocketRouteValidatesTokenFromQuery(t *testing.T) {
 	}).Build()
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ws?token=abc123", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ws", nil)
+	req.Header.Set("Sec-WebSocket-Protocol", "ws-token, abc123")
 	router.ServeHTTP(w, req)
 
 	// No upgrade -> 400, pero el token debe validarse antes.
@@ -73,7 +74,7 @@ func TestRouter_WebsocketRouteValidatesTokenFromQuery(t *testing.T) {
 		t.Fatalf("expected 400 for non-upgraded request, got %d", w.Code)
 	}
 	if len(validator.tokens) != 1 || validator.tokens[0] != "abc123" {
-		t.Fatalf("expected token to be validated from query param, got %+v", validator.tokens)
+		t.Fatalf("expected token to be validated from protocol header, got %+v", validator.tokens)
 	}
 }
 

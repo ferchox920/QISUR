@@ -53,7 +53,10 @@ func bootstrap(ctx context.Context, cfg config.Config, logr *slog.Logger) (*App,
 
 	verificationSender := initVerificationSender(cfg, logr)
 	jwtProvider := buildJWTProvider(cfg)
-	idService, catService := initServices(dbPool, verificationSender, jwtProvider)
+	idService, catService, err := initServices(dbPool, verificationSender, jwtProvider)
+	if err != nil {
+		return nil, err
+	}
 	seedAdmin(ctx, idService, cfg, logr)
 
 	router := initHTTPServer(cfg, wsHub, jwtProvider, idService, catService)
@@ -136,7 +139,7 @@ func buildJWTProvider(cfg config.Config) crypto.JWTProvider {
 	}
 }
 
-func initServices(dbPool *pgxpool.Pool, verificationSender identity.VerificationSender, jwtProvider crypto.JWTProvider) (identity.Service, catalog.Service) {
+func initServices(dbPool *pgxpool.Pool, verificationSender identity.VerificationSender, jwtProvider crypto.JWTProvider) (identity.Service, catalog.Service, error) {
 	identityRepo := postgres.NewIdentityRepository(dbPool)
 	catalogRepo := postgres.NewCatalogRepository(dbPool)
 
@@ -151,12 +154,15 @@ func initServices(dbPool *pgxpool.Pool, verificationSender identity.Verification
 		TokenProvider:            jwtProvider,
 	})
 
-	catService := catalog.NewService(catalog.ServiceDeps{
+	catService, err := catalog.NewService(catalog.ServiceDeps{
 		CategoryRepo: catalogRepo,
 		ProductRepo:  catalogRepo,
 	})
+	if err != nil {
+		return nil, nil, err
+	}
 
-	return idService, catService
+	return idService, catService, nil
 }
 
 func seedAdmin(ctx context.Context, idService identity.Service, cfg config.Config, logr *slog.Logger) {

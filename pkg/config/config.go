@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"errors"
+	"net/url"
 )
 
 // AdminSeed contiene las credenciales de arranque para el usuario admin inicial.
@@ -91,7 +92,16 @@ func defaultDatabaseURL() string {
 	port := envOrDefault("POSTGRES_PORT", "55432")
 	db := envOrDefault("POSTGRES_DB", "catalog")
 	sslMode := envOrDefault("POSTGRES_SSLMODE", "disable")
-	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", user, password, host, port, db, sslMode)
+	u := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(user, password),
+		Host:   fmt.Sprintf("%s:%s", host, port),
+		Path:   "/" + db,
+	}
+	q := url.Values{}
+	q.Set("sslmode", sslMode)
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 func durationOrDefault(key string, fallback time.Duration) time.Duration {

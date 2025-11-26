@@ -185,8 +185,8 @@
       }
 
       const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const wsUrl = `${protocol}://${window.location.host}/ws?token=${encodeURIComponent(token)}`;
-      socket = new WebSocket(wsUrl);
+      const wsUrl = `${protocol}://${window.location.host}/ws`;
+      socket = new WebSocket(wsUrl, ['ws-token', token]);
 
       socket.addEventListener('open', () => setStatus('connected', 'Conectado'));
       socket.addEventListener('close', () => setStatus('error', 'Desconectado'));

@@ -98,18 +98,18 @@ type IPRateLimiter struct {
 	clients         map[string]*clientLimiter
 	ttl             time.Duration
 	cleanupInterval time.Duration
-	nextCleanup     time.Time
 }
 
 func NewIPRateLimiter(limit rate.Limit, burst int) *IPRateLimiter {
-	return &IPRateLimiter{
+	l := &IPRateLimiter{
 		limit:           limit,
 		burst:           burst,
 		clients:         make(map[string]*clientLimiter),
 		ttl:             15 * time.Minute,
 		cleanupInterval: 5 * time.Minute,
-		nextCleanup:     time.Now().Add(5 * time.Minute),
 	}
+	go l.runCleanup()
+	return l
 }
 
 type clientLimiter struct {
@@ -130,25 +130,22 @@ func (l *IPRateLimiter) getLimiter(now time.Time, key string) *rate.Limiter {
 }
 
 func (l *IPRateLimiter) Allow(key string) bool {
-	now := time.Now()
-	l.maybeCleanup(now)
-	return l.getLimiter(now, key).Allow()
+	return l.getLimiter(time.Now(), key).Allow()
 }
 
-func (l *IPRateLimiter) maybeCleanup(now time.Time) {
-	// purgamos limitadores viejos para evitar fuga de memoria por IPs que no vuelven
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if now.Before(l.nextCleanup) {
-		return
-	}
-	cutoff := now.Add(-l.ttl)
-	for key, cl := range l.clients {
-		if cl.lastUse.Before(cutoff) {
-			delete(l.clients, key)
+func (l *IPRateLimiter) runCleanup() {
+	ticker := time.NewTicker(l.cleanupInterval)
+	for range ticker.C {
+		now := time.Now()
+		cutoff := now.Add(-l.ttl)
+		l.mu.Lock()
+		for key, cl := range l.clients {
+			if cl.lastUse.Before(cutoff) {
+				delete(l.clients, key)
+			}
 		}
+		l.mu.Unlock()
 	}
-	l.nextCleanup = now.Add(l.cleanupInterval)
 }
 
 // SecurityHeadersMiddleware inyecta cabeceras defensivas basicas.

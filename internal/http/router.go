@@ -2,6 +2,7 @@ package http
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"catalog-api/internal/ws"
@@ -120,7 +121,7 @@ func (f *RouterFactory) Build() *gin.Engine {
 }
 
 func websocketToken(c *gin.Context) string {
-	if token := c.Query("token"); token != "" {
+	if token := tokenFromWSProtocol(c.Request.Header.Get("Sec-WebSocket-Protocol")); token != "" {
 		return token
 	}
 	if token := bearerTokenFromHeader(c.Request); token != "" {
@@ -128,6 +129,21 @@ func websocketToken(c *gin.Context) string {
 	}
 	if token, err := c.Cookie("token"); err == nil && token != "" {
 		return token
+	}
+	return ""
+}
+
+func tokenFromWSProtocol(header string) string {
+	if header == "" {
+		return ""
+	}
+	parts := strings.Split(header, ",")
+	for _, p := range parts {
+		v := strings.TrimSpace(p)
+		if v == "" || strings.EqualFold(v, "ws-token") {
+			continue
+		}
+		return v
 	}
 	return ""
 }
