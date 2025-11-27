@@ -27,9 +27,11 @@ import (
 	"catalog-api/pkg/crypto"
 	"catalog-api/pkg/logger"
 	"catalog-api/pkg/mailer"
+	"catalog-api/pkg/redis"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 // App encapsula las dependencias principales de la aplicacion.
@@ -39,6 +41,7 @@ type App struct {
 	WSHub    *ws.Hub
 	HTTPPort string
 	Logr     *slog.Logger
+	Redis    *goredis.Client
 }
 
 func bootstrap(ctx context.Context, cfg config.Config, logr *slog.Logger) (*App, error) {
@@ -48,6 +51,12 @@ func bootstrap(ctx context.Context, cfg config.Config, logr *slog.Logger) (*App,
 	if err != nil {
 		return nil, err
 	}
+
+	redisClient, err := redis.NewClient(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB)
+	if err != nil {
+		return nil, err
+	}
+	logr.Info("redis connected", "addr", cfg.Redis.Addr)
 
 	wsHub := ws.NewHub(cfg.WSAllowedOrigins, logr)
 
@@ -67,6 +76,7 @@ func bootstrap(ctx context.Context, cfg config.Config, logr *slog.Logger) (*App,
 		WSHub:    wsHub,
 		HTTPPort: cfg.HTTPPort,
 		Logr:     logr,
+		Redis:    redisClient,
 	}, nil
 }
 
@@ -90,6 +100,9 @@ func main() {
 		os.Exit(1)
 	}
 	defer app.DB.Close()
+	if app.Redis != nil {
+		defer app.Redis.Close()
+	}
 
 	if app.WSHub != nil {
 		go app.WSHub.Run(ctx)

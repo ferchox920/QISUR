@@ -29,6 +29,7 @@ type Config struct {
 	JWTTTL           time.Duration
 	WSAllowedOrigins []string
 	ShutdownTimeout  time.Duration
+	Redis            RedisConfig
 }
 
 // SMTPConfig contiene las credenciales SMTP para el envio de correo.
@@ -39,6 +40,13 @@ type SMTPConfig struct {
 	Password string
 	From     string
 	SkipTLS  bool
+}
+
+// RedisConfig agrupa los parametros de conexion a Redis.
+type RedisConfig struct {
+	Addr     string
+	Password string
+	DB       int
 }
 
 // Load lee configuracion desde variables de entorno con valores por defecto.
@@ -58,6 +66,11 @@ func Load() Config {
 			Password: os.Getenv("SMTP_PASSWORD"),
 			From:     os.Getenv("SMTP_FROM"),
 			SkipTLS:  boolOrDefault("SMTP_TLS_SKIP_VERIFY", false),
+		},
+		Redis: RedisConfig{
+			Addr:     envOrDefault("REDIS_ADDR", "localhost:6379"),
+			Password: os.Getenv("REDIS_PASSWORD"),
+			DB:       intOrDefault("REDIS_DB", 0),
 		},
 		AdminSeed: AdminSeed{
 			Email:    os.Getenv("ADMIN_EMAIL"),

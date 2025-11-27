@@ -26,12 +26,22 @@ services:
     ]
     restart: "no"
 
+  redis:
+    image: redis:7-alpine
+    container_name: qisur-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: on-failure
+
   api:
     build:
       context: .
       dockerfile: Dockerfile
     depends_on:
       - migrate
+      - redis
     environment:
       HTTP_PORT: ${HTTP_PORT:-8080}
       DATABASE_URL: ${DATABASE_URL:-postgres://catalog:catalog@db:5432/catalog?sslmode=disable}
@@ -41,8 +51,12 @@ services:
       JWT_SECRET: ${JWT_SECRET:-changeme}
       JWT_ISSUER: ${JWT_ISSUER:-catalog-api}
       JWT_TTL: ${JWT_TTL:-15m}
+      REDIS_ADDR: ${REDIS_ADDR:-redis:6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-""}
+      REDIS_DB: ${REDIS_DB:-0}
     ports:
       - "${HTTP_PORT:-8080}:8080"
 
 volumes:
   db_data:
+  redis_data:
