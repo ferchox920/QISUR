@@ -8,9 +8,9 @@ import (
 	"catalog-api/internal/ws"
 
 	"github.com/gin-gonic/gin"
+	goredis "github.com/redis/go-redis/v9"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"golang.org/x/time/rate"
 )
 
 // RouterFactory agrupa los handlers necesarios para construir el router HTTP.
@@ -19,6 +19,7 @@ type RouterFactory struct {
 	WSHub           *ws.Hub
 	TokenValidator  TokenValidator
 	CatalogHandler  *CatalogHandler
+	RedisClient     *goredis.Client
 }
 
 // Build cablea todas las rutas HTTP para REST y WebSocket.
@@ -83,8 +84,10 @@ func (f *RouterFactory) Build() *gin.Engine {
 	}
 	if f.IdentityHandler != nil {
 		identityGroup := api.Group("/identity")
-		identityLimiter := NewIPRateLimiter(rate.Every(time.Minute/5), 5)
-		identityGroup.Use(RateLimitMiddleware(identityLimiter))
+		if f.RedisClient != nil {
+			identityLimiter := NewIPRateLimiter(f.RedisClient, 5, time.Minute)
+			identityGroup.Use(RateLimitMiddleware(identityLimiter))
+		}
 		identityGroup.POST("/users/client", f.IdentityHandler.RegisterClient)
 		identityGroup.POST("/users", f.IdentityHandler.RegisterUser)
 		identityGroup.POST("/verify", f.IdentityHandler.VerifyUser)

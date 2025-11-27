@@ -1,13 +1,14 @@
 package http
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"golang.org/x/time/rate"
+	"github.com/redis/go-redis/v9"
 )
 
 // TokenValidator valida tokens de auth y devuelve un contexto de auth.
@@ -82,7 +83,9 @@ func RateLimitMiddleware(limiter *IPRateLimiter) gin.HandlerFunc {
 		if ip == "" {
 			ip = "unknown"
 		}
-		if !limiter.Allow(ip) {
+
+		// Contexto del request para Redis
+		if !limiter.Allow(c.Request.Context(), ip) {
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "too many requests"})
 			return
 		}
@@ -90,62 +93,41 @@ func RateLimitMiddleware(limiter *IPRateLimiter) gin.HandlerFunc {
 	}
 }
 
-// IPRateLimiter gestiona limitadores por IP.
+// IPRateLimiter gestiona limitadores usando Redis.
 type IPRateLimiter struct {
-	limit           rate.Limit
-	burst           int
-	mu              sync.Mutex
-	clients         map[string]*clientLimiter
-	ttl             time.Duration
-	cleanupInterval time.Duration
+	redisClient *redis.Client
+	limit       int           // Peticiones permitidas
+	window      time.Duration // Ventana de tiempo (ej. 1 minuto)
 }
 
-func NewIPRateLimiter(limit rate.Limit, burst int) *IPRateLimiter {
-	l := &IPRateLimiter{
-		limit:           limit,
-		burst:           burst,
-		clients:         make(map[string]*clientLimiter),
-		ttl:             15 * time.Minute,
-		cleanupInterval: 5 * time.Minute,
+// NewIPRateLimiter crea el limitador respaldado por Redis.
+func NewIPRateLimiter(rdb *redis.Client, limit int, window time.Duration) *IPRateLimiter {
+	return &IPRateLimiter{
+		redisClient: rdb,
+		limit:       limit,
+		window:      window,
 	}
-	go l.runCleanup()
-	return l
 }
 
-type clientLimiter struct {
-	limiter *rate.Limiter
-	lastUse time.Time
-}
+// Allow verifica si la IP puede realizar la petición.
+func (l *IPRateLimiter) Allow(ctx context.Context, ip string) bool {
+	// Clave única por IP y ventana de tiempo (simple fixed window)
+	// Ejemplo: rate:192.168.1.1 (con expiración)
+	key := fmt.Sprintf("rate:%s", ip)
 
-func (l *IPRateLimiter) getLimiter(now time.Time, key string) *rate.Limiter {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if cl, ok := l.clients[key]; ok {
-		cl.lastUse = now
-		return cl.limiter
+	// Incrementamos el contador
+	count, err := l.redisClient.Incr(ctx, key).Result()
+	if err != nil {
+		// En caso de error de Redis, permitimos el tráfico para no bloquear el servicio (Fail Open)
+		return true
 	}
-	limiter := rate.NewLimiter(l.limit, l.burst)
-	l.clients[key] = &clientLimiter{limiter: limiter, lastUse: now}
-	return limiter
-}
 
-func (l *IPRateLimiter) Allow(key string) bool {
-	return l.getLimiter(time.Now(), key).Allow()
-}
-
-func (l *IPRateLimiter) runCleanup() {
-	ticker := time.NewTicker(l.cleanupInterval)
-	for range ticker.C {
-		now := time.Now()
-		cutoff := now.Add(-l.ttl)
-		l.mu.Lock()
-		for key, cl := range l.clients {
-			if cl.lastUse.Before(cutoff) {
-				delete(l.clients, key)
-			}
-		}
-		l.mu.Unlock()
+	// Si es la primera petición, establecemos el TTL
+	if count == 1 {
+		l.redisClient.Expire(ctx, key, l.window)
 	}
+
+	return count <= int64(l.limit)
 }
 
 // SecurityHeadersMiddleware inyecta cabeceras defensivas basicas.

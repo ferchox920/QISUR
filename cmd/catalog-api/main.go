@@ -70,7 +70,7 @@ func bootstrap(ctx context.Context, cfg config.Config, logr *slog.Logger) (*App,
 	}
 	seedAdmin(ctx, idService, cfg, logr)
 
-	router := initHTTPServer(cfg, wsHub, jwtProvider, idService, catService)
+	router := initHTTPServer(cfg, wsHub, redisClient, jwtProvider, idService, catService)
 
 	return &App{
 		DB:       dbPool,
@@ -191,7 +191,7 @@ func seedAdmin(ctx context.Context, idService identity.Service, cfg config.Confi
 	}
 }
 
-func initHTTPServer(cfg config.Config, wsHub *ws.Hub, jwtProvider crypto.JWTProvider, idService identity.Service, catService catalog.Service) *http.Server {
+func initHTTPServer(cfg config.Config, wsHub *ws.Hub, redisClient *goredis.Client, jwtProvider crypto.JWTProvider, idService identity.Service, catService catalog.Service) *http.Server {
 	eventEmitter := httpapi.NewSocketEmitter(wsHub)
 	catalogHandler := httpapi.NewCatalogHandler(catService, eventEmitter)
 	identityHandler := httpapi.NewIdentityHandler(idService)
@@ -201,6 +201,7 @@ func initHTTPServer(cfg config.Config, wsHub *ws.Hub, jwtProvider crypto.JWTProv
 		IdentityHandler: identityHandler,
 		WSHub:           wsHub,
 		TokenValidator:  httpapi.JWTValidatorAdapter{Provider: jwtProvider},
+		RedisClient:     redisClient,
 	}
 
 	router := routerFactory.Build()

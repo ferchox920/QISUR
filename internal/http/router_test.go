@@ -10,7 +10,9 @@ import (
 	"catalog-api/internal/identity"
 	"catalog-api/internal/ws"
 
+	miniredis "github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 type stubTokenValidator struct {
@@ -200,8 +202,11 @@ func TestRouter_LoginRateLimitedPerIP(t *testing.T) {
 	idSvc := &stubIdentityService{
 		loginResp: identity.AuthToken{Token: "tok"},
 	}
+	rdb, cleanup := newRedisClient(t)
+	defer cleanup()
 	router := (&RouterFactory{
 		IdentityHandler: NewIdentityHandler(idSvc),
+		RedisClient:     rdb,
 	}).Build()
 
 	for i := 0; i < 5; i++ {
@@ -222,4 +227,13 @@ func TestRouter_LoginRateLimitedPerIP(t *testing.T) {
 	if w.Code != http.StatusTooManyRequests {
 		t.Fatalf("expected 429 after exceeding rate limit, got %d", w.Code)
 	}
+}
+
+func newRedisClient(t *testing.T) (*redis.Client, func()) {
+	t.Helper()
+	mr, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("failed to start miniredis: %v", err)
+	}
+	return redis.NewClient(&redis.Options{Addr: mr.Addr()}), mr.Close
 }
