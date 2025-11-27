@@ -16,18 +16,20 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	docs "catalog-api/docs/swagger"
 	"catalog-api/internal/catalog"
 	httpapi "catalog-api/internal/http"
 	"catalog-api/internal/identity"
 	"catalog-api/internal/storage/postgres"
+	storageRedis "catalog-api/internal/storage/redis"
 	"catalog-api/internal/ws"
 	"catalog-api/pkg/config"
 	"catalog-api/pkg/crypto"
 	"catalog-api/pkg/logger"
 	"catalog-api/pkg/mailer"
-	"catalog-api/pkg/redis"
+	redispkg "catalog-api/pkg/redis"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
@@ -52,7 +54,7 @@ func bootstrap(ctx context.Context, cfg config.Config, logr *slog.Logger) (*App,
 		return nil, err
 	}
 
-	redisClient, err := redis.NewClient(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB)
+	redisClient, err := redispkg.NewClient(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +64,7 @@ func bootstrap(ctx context.Context, cfg config.Config, logr *slog.Logger) (*App,
 
 	verificationSender := initVerificationSender(cfg, logr)
 	jwtProvider := buildJWTProvider(cfg)
-	idService, catService, err := initServices(dbPool, verificationSender, jwtProvider)
+	idService, catService, err := initServices(dbPool, redisClient, verificationSender, jwtProvider)
 	if err != nil {
 		return nil, err
 	}
@@ -152,9 +154,10 @@ func buildJWTProvider(cfg config.Config) crypto.JWTProvider {
 	}
 }
 
-func initServices(dbPool *pgxpool.Pool, verificationSender identity.VerificationSender, jwtProvider crypto.JWTProvider) (identity.Service, catalog.Service, error) {
+func initServices(dbPool *pgxpool.Pool, redisClient *goredis.Client, verificationSender identity.VerificationSender, jwtProvider crypto.JWTProvider) (identity.Service, catalog.Service, error) {
 	identityRepo := postgres.NewIdentityRepository(dbPool)
 	catalogRepo := postgres.NewCatalogRepository(dbPool)
+	cachedCatalogRepo := storageRedis.NewCachedRepository(catalogRepo, catalogRepo, redisClient, 10*time.Minute)
 
 	codeGenerator := crypto.RandomDigitsGenerator{Length: 6}
 
@@ -168,8 +171,8 @@ func initServices(dbPool *pgxpool.Pool, verificationSender identity.Verification
 	})
 
 	catService, err := catalog.NewService(catalog.ServiceDeps{
-		CategoryRepo: catalogRepo,
-		ProductRepo:  catalogRepo,
+		CategoryRepo: cachedCatalogRepo,
+		ProductRepo:  cachedCatalogRepo,
 	})
 	if err != nil {
 		return nil, nil, err
