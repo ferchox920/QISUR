@@ -1,6 +1,7 @@
 package http
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -194,6 +195,54 @@ func TestRouter_AdminIdentityRoutesUseRoleMiddleware(t *testing.T) {
 	}
 	if idSvc.updateRoleInput.Role != "" {
 		t.Fatalf("service should not be invoked on forbidden request")
+	}
+}
+
+func TestRouter_AdminIdentityRoute_EndToEnd(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	adminCtx := AuthContext{UserID: "admin-1", Role: "admin"}
+	validator := &stubTokenValidator{ctx: adminCtx}
+	idSvc := &stubIdentityService{
+		updateRoleResp: identity.User{
+			ID:         "u2",
+			Email:      "member@example.com",
+			FullName:   "Member",
+			Role:       identity.RoleAdmin,
+			Status:     identity.UserStatusActive,
+			IsVerified: true,
+		},
+	}
+	router := (&RouterFactory{
+		IdentityHandler: NewIdentityHandler(idSvc),
+		TokenValidator:  validator,
+	}).Build()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/identity/users/u2/role", strings.NewReader(`{"role":"admin"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer admintok")
+	router.ServeHTTP(w, req)
+
+	t.Logf("flow: %s %s -> status=%d", req.Method, req.URL.Path, w.Code)
+	t.Logf("validator tokens: %+v", validator.tokens)
+	t.Logf("service payload: adminID=%s userID=%s role=%s", idSvc.updateRoleInput.AdminID, idSvc.updateRoleInput.UserID, idSvc.updateRoleInput.Role)
+	t.Logf("response body: %s", strings.TrimSpace(w.Body.String()))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if len(validator.tokens) != 1 || validator.tokens[0] != "admintok" {
+		t.Fatalf("expected validator to receive bearer token, got %+v", validator.tokens)
+	}
+	if idSvc.updateRoleInput.AdminID != adminCtx.UserID || string(idSvc.updateRoleInput.UserID) != "u2" || idSvc.updateRoleInput.Role != identity.RoleAdmin {
+		t.Fatalf("service received wrong payload %+v", idSvc.updateRoleInput)
+	}
+	var resp IdentityResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.ID != "u2" || resp.Role != string(identity.RoleAdmin) {
+		t.Fatalf("unexpected response %+v", resp)
 	}
 }
 
